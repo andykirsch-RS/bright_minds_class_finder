@@ -14,7 +14,7 @@ const CONFIG = {
   // In Google Sheets: File → Share → Publish to web →
   //   select the output tab → CSV → Publish → copy link.
   // Leave empty ("") to show the file upload dropzone instead.
-  dataUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQc--XNIN9X3e1m2hAchdpJNtMvVF77PzDDSU-jLlgTk9FjO5ZwJNNTnatyjaMbDTUKsoe11VwHjy6R/pub?gid=320321807&single=true&output=csv",
+  dataUrl: "",
 
   // Set to true to always show the file upload dropzone
   // even when dataUrl is set (useful for admins testing files).
@@ -87,6 +87,10 @@ const CONFIG = {
   #search-clear.visible { display:block; }
   .search-match-highlight { background:rgba(88,166,255,.15); border-color:var(--accent) !important; }
   .search-student-match { background:rgba(88,166,255,.07); }
+  #filter-count-bar { display:none; font-size:13px; color:var(--muted); padding:6px 2px; margin-bottom:8px; }
+  #filter-count-bar.visible { display:flex; align-items:center; gap:10px; }
+  #filter-count-bar strong { color:var(--text); }
+  #filter-count-clear { background:transparent; border:none; color:var(--accent); font-family:inherit; font-size:12px; cursor:pointer; padding:0; text-decoration:underline; }
   #summary-bar.visible { display:flex; }
   .summary-stat { cursor:pointer; padding:8px 16px; border-radius:8px; border:2px solid transparent; transition:all .15s; }
   .summary-stat:hover { background:rgba(255,255,255,.04); }
@@ -300,6 +304,11 @@ const CONFIG = {
   <div id="search-bar">
     <input id="search-input" type="text" placeholder="Search by student name or class ID…" oninput="onSearch(this.value)" autocomplete="off"/>
     <button id="search-clear" onclick="clearSearch()">✕</button>
+  </div>
+
+  <div id="filter-count-bar">
+    <span id="filter-count-text"></span>
+    <button id="filter-count-clear" onclick="clearAllFilters()">Clear filter</button>
   </div>
 
   <div id="results"></div>
@@ -599,7 +608,7 @@ function parseFile(text, filename) {
       comment:    oi>=0   ? c[oi]   : "",
       delivery:   deli>=0 ? (/on[il]{2,3}ne/i.test(c[deli].trim()) || c[deli].trim().toLowerCase().includes('online') ? 'online' : 'in-person') : "",
     }; }
-    map[cn].push({ name:c[ni], grade:parseFloat(c[gi]), ability:parseFloat(c[bi]) });
+    map[cn].push({ name:c[ni], grade:Math.min(12, Math.max(-1, parseFloat(c[gi]))), ability:parseFloat(c[bi]) });
   }
   return Object.entries(map).map(([className,students])=>({
     className, students,
@@ -659,11 +668,36 @@ function filterByStatus(status) {
     if (!show) card.classList.remove("expanded");
   });
   applySortToDom();
+  updateFilterCount();
 }
 
 function setActiveFilter(id) {
   ["filter-all","filter-crit","filter-warn","filter-ok"].forEach(fid=>
     document.getElementById(fid).classList.toggle("active-filter",fid===id));
+}
+
+function updateFilterCount() {
+  const container  = document.getElementById("results");
+  const total      = container ? container.querySelectorAll(".class-card").length : 0;
+  const visible    = container ? container.querySelectorAll(".class-card:not(.filtered-out)").length : 0;
+  const bar        = document.getElementById("filter-count-bar");
+  const text       = document.getElementById("filter-count-text");
+  const isFiltered = visible < total;
+  bar.classList.toggle("visible", isFiltered);
+  if (isFiltered && text) {
+    text.innerHTML = `Showing <strong>${visible}</strong> of <strong>${total}</strong> classes`;
+  }
+}
+
+function clearAllFilters() {
+  // Clear status filter
+  activeFilter = null;
+  setActiveFilter("filter-all");
+  // Clear class filter panel
+  clearClassFilter();
+  // Restore all cards
+  document.querySelectorAll(".class-card").forEach(card => card.classList.remove("filtered-out"));
+  applySortToDom();
 }
 
 // ════════════════════════════════════════════════════════
@@ -712,7 +746,10 @@ function applySortToDom() {
   const container = document.getElementById("results");
   if (!container) return;
   const cards = [...container.querySelectorAll(".class-card")];
-  cards.sort((a, b) => {
+  const visible = cards.filter(c => !c.classList.contains("filtered-out"));
+  const hidden  = cards.filter(c =>  c.classList.contains("filtered-out"));
+
+  visible.sort((a, b) => {
     const ai = parseInt(a.dataset.idx), bi = parseInt(b.dataset.idx);
     const ac = allAnalysed[ai], bc = allAnalysed[bi];
     const av = sortKey(ac, currentSort.key);
@@ -720,7 +757,10 @@ function applySortToDom() {
     const cmp = av < bv ? -1 : av > bv ? 1 : 0;
     return cmp * currentSort.dir;
   });
-  cards.forEach(card => container.appendChild(card));
+
+  // Append visible (sorted) first, hidden after — hidden are display:none so order doesn't matter
+  [...visible, ...hidden].forEach(card => container.appendChild(card));
+  updateFilterCount();
 }
 
 function renderCards(analysed) {
