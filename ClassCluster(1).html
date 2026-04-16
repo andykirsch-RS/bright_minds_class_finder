@@ -1,0 +1,1728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ClassCluster</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+// ════════════════════════════════════════════════════════
+// CONFIGURATION — edit these values to deploy
+// ════════════════════════════════════════════════════════
+const CONFIG = {
+  // Paste your published Google Sheets CSV URL here.
+  // In Google Sheets: File → Share → Publish to web →
+  //   select the output tab → CSV → Publish → copy link.
+  // Leave empty ("") to show the file upload dropzone instead.
+  dataUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQc--XNIN9X3e1m2hAchdpJNtMvVF77PzDDSU-jLlgTk9FjO5ZwJNNTnatyjaMbDTUKsoe11VwHjy6R/pub?gid=320321807&single=true&output=csv",
+
+  // Set to true to always show the file upload dropzone
+  // even when dataUrl is set (useful for admins testing files).
+  showDropzone: false,
+};
+// ════════════════════════════════════════════════════════
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@700;900&family=Inter:wght@400;500;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #05080f;
+    --surface:  #0d1117;
+    --surface2: #111720;
+    --border:   #1c2333;
+    --text:     #e6edf3;
+    --muted:    #768390;
+    --accent:   #58a6ff;
+    --green:    #3fb950;
+    --amber:    #d29922;
+    --red:      #f85149;
+    --gold:     #f0a500;
+    --purple:   #bc8cff;
+  }
+  body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; font-size:14px; min-height:100vh; }
+
+  header { display:flex; align-items:center; justify-content:space-between; padding:20px 40px; border-bottom:1px solid var(--border); }
+  header h1 { font-family:'Fraunces',serif; font-size:24px; font-weight:900; color:#e6edf3; }
+  header p { color:var(--muted); font-size:12px; margin-top:3px; }
+  #export-all-btn { display:none; background:var(--surface); border:1px solid var(--border); color:var(--text); padding:8px 18px; border-radius:8px; font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; }
+  #export-all-btn:hover { border-color:var(--accent); }
+
+  main { max-width:1100px; margin:0 auto; padding:36px 24px 80px; }
+
+  #dropzone { border:2px dashed var(--border); border-radius:14px; padding:40px 20px; text-align:center; cursor:pointer; transition:all .2s; margin-bottom:32px; }
+  #dropzone.dragging { border-color:var(--accent); background:rgba(88,166,255,.04); }
+  #dropzone:hover { border-color:#2d3f55; }
+  #dropzone .icon { font-size:32px; margin-bottom:10px; }
+  #dropzone .label { font-size:15px; font-weight:600; color:#adbac7; }
+  #dropzone .sub { font-size:12px; color:#3d4f6b; margin-top:8px; line-height:1.8; }
+  #dropzone code { background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:1px 7px; font-size:11px; color:#adbac7; }
+  #file-input { display:none; }
+  #sample-btn { background:transparent; border:1px solid var(--border); color:var(--muted); padding:7px 14px; border-radius:7px; font-family:inherit; font-size:12px; cursor:pointer; margin-top:12px; }
+  #sample-btn:hover { color:var(--text); border-color:var(--muted); }
+
+  #error-box { display:none; background:rgba(248,81,73,.08); border:1px solid rgba(248,81,73,.3); border-radius:10px; padding:12px 18px; color:#ffa198; font-size:13px; margin-bottom:20px; }
+  #spinner { display:none; text-align:center; color:var(--muted); font-size:13px; padding:28px; }
+  .dot-spin { display:inline-block; animation:spin 1s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  #sort-bar { display:none; margin-bottom:14px; gap:6px; flex-wrap:wrap; align-items:center; }
+  #last-updated { display:none; font-size:12px; color:var(--muted); }
+  #last-updated.visible { display:inline; }
+  #refresh-btn { display:none; background:transparent; border:1px solid var(--border); color:var(--muted); padding:5px 12px; border-radius:7px; font-family:inherit; font-size:12px; cursor:pointer; }
+  #refresh-btn:hover { color:var(--text); border-color:var(--muted); }
+  #refresh-btn.visible { display:inline-block; }
+  #refresh-btn.spinning { animation:spin .8s linear infinite; pointer-events:none; }
+  #sort-bar.visible { display:flex; }
+  .sort-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-right:2px; }
+  .sort-btn { background:var(--surface); border:1px solid var(--border); border-radius:7px; color:var(--muted); font-family:inherit; font-size:12px; font-weight:600; padding:5px 12px; cursor:pointer; transition:all .15s; user-select:none; white-space:nowrap; }
+  .sort-btn:hover { color:var(--text); border-color:#3d4f6b; }
+  .sort-btn.active { border-color:var(--accent); color:var(--accent); background:rgba(88,166,255,.08); }
+  .sort-btn.active .sort-arrow { display:inline; }
+  .sort-arrow { display:none; margin-left:3px; font-size:10px; }
+  #search-bar.visible { display:block; }
+  #search-input { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 40px 10px 16px; color:var(--text); font-family:inherit; font-size:14px; outline:none; transition:border-color .15s; }
+  #search-input:focus { border-color:var(--accent); }
+  #search-input::placeholder { color:#3d4f6b; }
+  #search-clear { position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--muted); font-size:16px; cursor:pointer; display:none; padding:0; line-height:1; }
+  #search-clear.visible { display:block; }
+  .search-match-highlight { background:rgba(88,166,255,.15); border-color:var(--accent) !important; }
+  .search-student-match { background:rgba(88,166,255,.07); }
+  #filter-count-bar { display:none; font-size:13px; color:var(--muted); padding:6px 2px; margin-bottom:8px; }
+  #filter-count-bar.visible { display:flex; align-items:center; gap:10px; }
+  #filter-count-bar strong { color:var(--text); }
+  #filter-count-clear { background:transparent; border:none; color:var(--accent); font-family:inherit; font-size:12px; cursor:pointer; padding:0; text-decoration:underline; }
+  #summary-bar.visible { display:flex; }
+  .summary-stat { cursor:pointer; padding:8px 16px; border-radius:8px; border:2px solid transparent; transition:all .15s; }
+  .summary-stat:hover { background:rgba(255,255,255,.04); }
+  .summary-stat.active-filter { border-color:var(--accent); background:rgba(88,166,255,.07); }
+  .summary-stat .val { font-size:22px; font-weight:700; font-family:'Fraunces',serif; }
+  .summary-stat .lbl { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.07em; margin-top:2px; }
+  .summary-stat.green .val { color:var(--green); }
+  .summary-stat.amber .val { color:var(--amber); }
+  .summary-stat.red   .val { color:var(--red); }
+  .summary-divider { width:1px; height:36px; background:var(--border); margin:0 4px; flex-shrink:0; }
+
+  .class-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; margin-bottom:10px; animation:fadeUp .25s ease; overflow:hidden; transition:border-color .15s; }
+  .class-card.filtered-out { display:none; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+
+  .card-header-row { display:flex; justify-content:space-between; align-items:center; padding:14px 20px; cursor:pointer; gap:12px; transition:background .15s; }
+  .card-header-row:hover { background:rgba(255,255,255,.025); }
+  .card-chevron { color:var(--muted); font-size:11px; transition:transform .2s; flex-shrink:0; }
+  .class-card.expanded .card-chevron { transform:rotate(90deg); }
+  .card-header-left { display:flex; align-items:center; gap:10px; min-width:0; flex:1; }
+  .card-header-name { font-family:'Fraunces',serif; font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card-header-meta { font-size:12px; color:var(--muted); white-space:nowrap; margin-left:4px; }
+  .card-header-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .card-header-alerts { display:flex; gap:4px; }
+  .mini-alert { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600; }
+  .mini-alert.danger { background:rgba(248,81,73,.15); color:#ffa198; }
+  .mini-alert.warn   { background:rgba(210,153,34,.15); color:#e3b341; }
+  .mini-alert.split  { background:rgba(188,140,255,.15); color:#d2a8ff; }
+  .mini-alert.small  { background:rgba(88,166,255,.15);  color:#79c0ff; }
+
+  #placement-overlay {
+    display:none; position:fixed; top:72px; right:352px;
+    z-index:9999; background:#0d1117; border:1px solid var(--accent);
+    border-radius:14px; padding:20px 22px; width:300px;
+    box-shadow:0 8px 32px rgba(0,0,0,.6);
+  }
+  #placement-overlay.visible { display:block; }
+  #placement-overlay.minimized .overlay-body { display:none; }
+  #placement-overlay.minimized { padding-bottom:14px; }
+  #filter-overlay.minimized .overlay-body { display:none; }
+  #filter-overlay.minimized { padding-bottom:14px; }
+  #placement-overlay h3 { font-family:'Fraunces',serif; font-size:15px; font-weight:700; margin-bottom:16px; color:var(--text); }
+  .placement-field { margin-bottom:16px; }
+  .placement-field .p-label { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+  .placement-field .p-name { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); }
+  .placement-field .p-val  { font-size:16px; font-weight:700; font-family:'Fraunces',serif; color:var(--accent); min-width:80px; text-align:right; }
+  .placement-field input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:2px; background:var(--border); outline:none; cursor:pointer; }
+  .placement-field input[type=range]::-moz-range-thumb { width:18px; height:18px; border-radius:50%; background:var(--accent); border:none; cursor:pointer; }
+  .placement-field input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:var(--accent); cursor:pointer; }
+  .placement-field input[type=range]::-moz-range-track { height:4px; border-radius:2px; background:var(--border); }
+  #clear-placement-btn { background:transparent; border:1px solid var(--border); color:var(--muted); padding:7px 14px; border-radius:7px; font-family:inherit; font-size:12px; cursor:pointer; width:100%; margin-top:4px; }
+  #clear-placement-btn:hover { color:var(--text); border-color:var(--muted); }
+  .placement-hint { font-size:12px; color:var(--muted); margin-top:12px; line-height:1.5; }
+
+  .fit-badge { font-size:11px; padding:3px 10px; border-radius:10px; font-weight:700; white-space:nowrap; }
+  .fit-badge.perfect  { background:rgba(240,165,0,.2);  color:#f0c040; border:1px solid rgba(240,165,0,.4); }
+  .fit-badge.good     { background:rgba(63,185,80,.15); color:#3fb950; border:1px solid rgba(63,185,80,.35); }
+  .fit-badge.possible { background:rgba(210,153,34,.12);color:#d29922; border:1px solid rgba(210,153,34,.3); }
+
+  .card-body-wrap { display:none; border-top:1px solid var(--border); padding:20px 22px 22px; }
+  .class-card.expanded .card-body-wrap { display:block; }
+
+  .health-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600; white-space:nowrap; }
+  .health-badge.healthy  { background:rgba(63,185,80,.12);  color:var(--green); border:1px solid rgba(63,185,80,.3); }
+  .health-badge.warning  { background:rgba(210,153,34,.12); color:var(--amber); border:1px solid rgba(210,153,34,.3); }
+  .health-badge.critical { background:rgba(248,81,73,.12);  color:var(--red);   border:1px solid rgba(248,81,73,.3); }
+
+  .card-stats { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  .stat-chip { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:8px 14px; font-size:12px; }
+  .stat-chip .s-label { color:var(--muted); font-size:11px; margin-bottom:2px; }
+  .stat-chip .s-val { font-weight:600; color:var(--text); }
+  .stat-chip.warn .s-val { color:var(--amber); }
+  .stat-chip.crit .s-val { color:var(--red); }
+
+  .alerts { display:flex; flex-direction:column; gap:8px; margin-bottom:18px; }
+  .alert { border-radius:8px; padding:10px 14px; font-size:13px; display:flex; align-items:flex-start; gap:8px; line-height:1.6; }
+  .alert.info   { background:rgba(88,166,255,.08);  border:1px solid rgba(88,166,255,.2);  color:#79c0ff; }
+  .alert.warn   { background:rgba(210,153,34,.08);  border:1px solid rgba(210,153,34,.2);  color:#e3b341; }
+  .alert.danger { background:rgba(248,81,73,.08);   border:1px solid rgba(248,81,73,.2);   color:#ffa198; }
+  .alert.split  { background:rgba(188,140,255,.08); border:1px solid rgba(188,140,255,.2); color:#d2a8ff; }
+  .alert-icon { font-size:15px; flex-shrink:0; margin-top:1px; }
+
+  .card-body { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+  @media(max-width:700px){ .card-body{ grid-template-columns:1fr; } }
+  .section-label { font-size:11px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+  .chart-wrap { position:relative; height:230px; }
+
+  .table-wrap { overflow-y:auto; max-height:230px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead tr { border-bottom:1px solid var(--border); }
+  thead th { text-align:left; padding:4px 8px; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+  tbody tr { border-bottom:1px solid #0a0f18; }
+  tbody tr:hover { background:rgba(255,255,255,.02); }
+  tbody td { padding:5px 8px; }
+
+  .flag-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+  .flag-dot.green  { background:var(--green); }
+  .flag-dot.amber  { background:var(--amber); }
+  .flag-dot.red    { background:var(--red); }
+  .flag-dot.purple { background:var(--purple); }
+
+  .card-export-btn { background:transparent; border:1px solid var(--border); color:var(--muted); padding:5px 12px; border-radius:6px; font-family:inherit; font-size:12px; cursor:pointer; }
+  .card-export-btn:hover { color:var(--text); border-color:var(--muted); }
+
+  .card-header-comment { font-size:11px; color:#4a5568; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:420px; }
+  .class-comment { display:flex; gap:8px; align-items:flex-start; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-size:13px; color:var(--muted); line-height:1.6; margin-bottom:16px; }
+  .comment-icon { flex-shrink:0; font-size:14px; margin-top:1px; }
+
+  /* ── Filter Classes overlay ── */
+  #filter-overlay {
+    display:none; position:fixed; top:72px; right:24px;
+    z-index:9998; background:#0d1117; border:1px solid #e3b341;
+    border-radius:14px; padding:20px 22px; width:320px;
+    box-shadow:0 8px 32px rgba(0,0,0,.6); max-height:calc(100vh - 100px); overflow-y:auto;
+  }
+  #filter-overlay.visible { display:block; }
+  #filter-overlay h3 { font-family:'Fraunces',serif; font-size:15px; font-weight:700; color:var(--text); }
+  .flt-section { margin-bottom:14px; }
+  .flt-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:6px; }
+  .flt-chips { display:flex; flex-wrap:wrap; gap:5px; }
+  .flt-chip { background:var(--surface2); border:1px solid var(--border); border-radius:6px;
+    color:var(--muted); font-family:inherit; font-size:11px; font-weight:600;
+    padding:4px 10px; cursor:pointer; transition:all .15s; user-select:none; }
+  .flt-chip.active { border-color:#e3b341; color:#e3b341; background:rgba(227,179,65,.1); }
+  .flt-range-row { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--muted); }
+  .flt-range-val { font-weight:700; color:var(--text); font-size:11px; width:112px; flex-shrink:0; font-family:'Courier New',monospace; }
+  .flt-range-val.right { text-align:right; }
+  .flt-range-slider { flex:1; min-width:0; -webkit-appearance:none; appearance:none; height:4px; border-radius:2px; background:var(--border); outline:none; cursor:pointer; }
+  .flt-range-slider::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:#e3b341; cursor:pointer; }
+  .flt-range-slider::-moz-range-thumb { width:16px; height:16px; border-radius:50%; background:#e3b341; border:none; cursor:pointer; }
+  .flt-range-slider::-moz-range-track { height:4px; border-radius:2px; background:var(--border); }
+  #active-filter-count { display:none; background:#e3b341; color:#000; border-radius:50%; width:16px; height:16px; font-size:10px; font-weight:700; line-height:16px; text-align:center; margin-left:4px; }
+  .flt-divider { border:none; border-top:1px solid var(--border); margin:14px 0; }
+
+  .legend { display:flex; gap:16px; flex-wrap:wrap; margin-top:10px; }
+  .legend-item { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); }
+
+  .class-card.sched-conflict { opacity: 0.55; }
+  .class-card.sched-conflict .card-header-row { border-left: 3px solid #3d4f6b; }
+
+  /* Day-of-week checkboxes in placement panel */
+  .day-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin-top:4px; }
+  .day-btn { background:var(--surface2); border:1px solid var(--border); border-radius:6px;
+    color:var(--muted); font-family:inherit; font-size:11px; font-weight:600;
+    padding:5px 2px; cursor:pointer; text-align:center; transition:all .15s; user-select:none; }
+  .day-btn.active { background:rgba(88,166,255,.15); border-color:var(--accent); color:var(--accent); }
+  .sched-note { font-size:10px; color:#3d4f6b; font-style:italic; margin-top:2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>ClassCluster</h1>
+    <p>Class health · fit analysis · split recommendations</p>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <span id="last-updated"></span>
+    <button id="refresh-btn" onclick="fetchData()" title="Refresh data">↻</button>
+    <button id="export-all-btn" onclick="exportAll()">↓ Export All</button>
+    <button id="filter-toggle-btn" onclick="toggleFilterPanel()" style="display:none;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 18px;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;position:relative;">
+      ⚙ Filter Classes<span id="active-filter-count"></span>
+    </button>
+    <button id="placement-toggle-btn" onclick="togglePlacementPanel()" style="display:none;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 18px;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">🔍 Place Student</button>
+  </div>
+</header>
+
+<main>
+  <div id="dropzone"
+       ondragover="onDragOver(event)" ondragleave="onDragLeave()" ondrop="onDrop(event)"
+       onclick="document.getElementById('file-input').click()">
+    <input type="file" id="file-input" accept=".csv,.json" onchange="onFileChange(event)"/>
+    <div class="icon">📂</div>
+    <div class="label">Drop a CSV or JSON file here, or click to browse</div>
+    <div class="sub">
+      CSV columns: <code>ClassID, Name, Grade, Level, Day, Time, Instructor, Delivery, Comment</code><br/>
+      JSON: array of <code>{"className":"…","day":"Monday","time":"16:00","students":[{"name","grade","ability"}]}</code>
+    </div>
+    <button id="sample-btn" onclick="event.stopPropagation();loadSample()">Load sample data</button>
+  </div>
+
+  <div id="error-box"></div>
+  <div id="spinner"><span class="dot-spin">⟳</span> &nbsp;Analysing…</div>
+
+  <div id="summary-bar">
+    <div class="summary-stat" onclick="filterByStatus(null)" id="filter-all">
+      <div class="lbl">All Classes</div><div class="val" id="s-total">0</div>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-stat red" onclick="filterByStatus('critical')" id="filter-crit">
+      <div class="lbl">Action required</div><div class="val" id="s-crit">0</div>
+    </div>
+    <div class="summary-stat amber" onclick="filterByStatus('warning')" id="filter-warn">
+      <div class="lbl">Needs attention</div><div class="val" id="s-warn">0</div>
+    </div>
+    <div class="summary-stat green" onclick="filterByStatus('healthy')" id="filter-ok">
+      <div class="lbl">Healthy</div><div class="val" id="s-healthy">0</div>
+    </div>
+  </div>
+
+  <div id="sort-bar">
+    <span class="sort-label">Sort:</span>
+    <button class="sort-btn active" data-sort="health"      onclick="setSort('health')">Health<span class="sort-arrow">↑</span></button>
+    <button class="sort-btn"        data-sort="datetime"    onclick="setSort('datetime')">Day &amp; Time<span class="sort-arrow">↑</span></button>
+    <button class="sort-btn"        data-sort="level"       onclick="setSort('level')">Level<span class="sort-arrow">↑</span></button>
+    <button class="sort-btn"        data-sort="grade"       onclick="setSort('grade')">Grade<span class="sort-arrow">↑</span></button>
+    <button class="sort-btn"        data-sort="instructor"  onclick="setSort('instructor')">Instructor<span class="sort-arrow">↑</span></button>
+    <button class="sort-btn"        data-sort="size"        onclick="setSort('size')">Class Size<span class="sort-arrow">↑</span></button>
+  </div>
+
+  <div id="search-bar">
+    <input id="search-input" type="text" placeholder="Search by student name or class ID…" oninput="onSearch(this.value)" autocomplete="off"/>
+    <button id="search-clear" onclick="clearSearch()">✕</button>
+  </div>
+
+  <div id="filter-count-bar">
+    <span id="filter-count-text"></span>
+    <button id="filter-count-clear" onclick="clearAllFilters()">Clear filter</button>
+  </div>
+
+  <div id="results"></div>
+</main>
+
+<script>
+// ════════════════════════════════════════════════════════
+// BOOK LEVEL TABLE
+// ════════════════════════════════════════════════════════
+const BOOKS = [
+  { name:"KJ",         lo:-1,   hi:-0.5 },
+  { name:"KS",         lo:-0.5, hi:0    },
+  { name:"1A Mammoth", lo:0,    hi:0.5  },
+  { name:"1A Renert",  lo:0.5,  hi:1    },
+  { name:"1B Mammoth", lo:1,    hi:1.5  },
+  { name:"1B Renert",  lo:1.5,  hi:2    },
+  { name:"2A",         lo:2,    hi:2.5  },
+  { name:"2B",         lo:2.5,  hi:3    },
+  { name:"2C",         lo:3,    hi:3.5  },
+  { name:"2D",         lo:3.5,  hi:4    },
+  { name:"3A",         lo:4,    hi:4.5  },
+  { name:"3B",         lo:4.5,  hi:5    },
+  { name:"3C",         lo:5,    hi:5.5  },
+  { name:"3D",         lo:5.5,  hi:6    },
+  { name:"4A",         lo:6,    hi:7    },
+  { name:"4B",         lo:7,    hi:8    },
+  { name:"5",          lo:8,    hi:9    },
+  { name:"6",          lo:9,    hi:10   },
+  { name:"7",          lo:10,   hi:11   },
+  { name:"8",          lo:11,   hi:11.5 },
+  { name:"D1",         lo:11.5, hi:12   },
+  { name:"D2",         lo:12,   hi:12.5 },
+  { name:"M10 iWM10",  lo:12.5, hi:14   },
+  { name:"M20 iWM11",  lo:14,   hi:16   },
+  { name:"M30 iWM12",  lo:16,   hi:18   },
+  { name:"M31",        lo:18,   hi:20   },
+];
+
+// Slider omits D1 (phasing out)
+const SLIDER_BOOKS = BOOKS.filter(b => b.name !== "D1");
+
+// Convert numeric ability → "BookName.progress" string
+function abilityToBook(ability) {
+  let book = BOOKS[BOOKS.length - 1];
+  for (let i = 0; i < BOOKS.length; i++) {
+    if (ability < BOOKS[i].hi || i === BOOKS.length - 1) {
+      book = BOOKS[i]; break;
+    }
+  }
+  const width    = book.hi - book.lo;
+  const progress = Math.min(1, Math.max(0, (ability - book.lo) / width));
+  // Express progress as up to 2 decimal places, dropping trailing zeros after decimal
+  const p = Math.round(progress * 100) / 100;
+  let frac;
+  if (p === 0)                        frac = "0";
+  else if (p === 1)                   frac = "0"; // exactly at next book start
+  else if (Math.round(p*10) === p*10) frac = (p*10).toFixed(0);
+  else                                frac = (p*100).toFixed(0);
+  return `${book.name}.${frac}`;
+}
+
+// Slider steps: start and midpoint of each book (2 stops × 25 books = 50 steps, index 0–49)
+const SLIDER_STEPS = [];
+SLIDER_BOOKS.forEach(b => {
+  SLIDER_STEPS.push(b.lo);               // start of book
+  SLIDER_STEPS.push((b.lo + b.hi) / 2); // midpoint
+});
+
+// Slider index (0–49) → ability value
+function sliderIdxToAbility(idx) {
+  return SLIDER_STEPS[Math.max(0, Math.min(idx, SLIDER_STEPS.length - 1))];
+}
+
+// Grade integer → display label
+function gradeLabel(g) {
+  const n = Math.round(g);
+  if (n <= -1) return "JK";
+  if (n === 0) return "K";
+  return `Gr ${n}`;
+}
+
+// ════════════════════════════════════════════════════════
+// RULES
+// ════════════════════════════════════════════════════════
+const ABILITY_TOLERANCE = 1.0;
+const SIZE_WARN  = 10;
+const SIZE_CRIT  = 12;
+const SIZE_SMALL = 3;
+
+// Hard maximum grade spread by mean ability
+// ability < 4  = books KJ–2D  → danger at spread ≥ 3
+// ability 4–8  = books 3A–4B  → danger at spread ≥ 4
+// ability ≥ 8  = book 5+      → danger at spread ≥ 5
+function maxGradeSpread(meanAbility) {
+  if (meanAbility >= 8) return 5;
+  if (meanAbility >= 4) return 4;
+  return 3;
+}
+
+// Warning threshold — fires one below the hard limit
+// ability < 4  → warn at spread 2
+// ability 4–8  → warn at spread 3
+// ability ≥ 8  → warn at spread 4
+function warnGradeSpread(meanAbility) {
+  if (meanAbility >= 8) return 4;
+  if (meanAbility >= 4) return 3;
+  return 2;
+}
+
+function isPrecocious(student, meanGrade, meanAbility) {
+  return meanAbility >= 9 && student.ability >= 9 && student.grade < meanGrade - 1.5;
+}
+
+// ════════════════════════════════════════════════════════
+// ANALYSIS
+// ════════════════════════════════════════════════════════
+function analyseClass(cls) {
+  const students = cls.students;
+  const n = students.length;
+  if (n === 0) return { ...cls, health:"healthy", alerts:[], studentFlags:[], stats:{} };
+
+  const meanGrade   = students.reduce((a,s)=>a+s.grade,   0)/n;
+  const meanAbility = students.reduce((a,s)=>a+s.ability, 0)/n;
+  const grades      = students.map(s=>s.grade);
+  const abilities   = students.map(s=>s.ability);
+  const minGrade=Math.min(...grades), maxGrade=Math.max(...grades);
+  const minAb=Math.min(...abilities), maxAb=Math.max(...abilities);
+  const gradeSpread   = maxGrade - minGrade;
+  const abilitySpread = maxAb - minAb;
+  const allowedSpread = maxGradeSpread(meanAbility);
+
+  const acceptGradeMin = minGrade - Math.max(0, allowedSpread - gradeSpread);
+  const acceptGradeMax = maxGrade + Math.max(0, allowedSpread - gradeSpread);
+  const acceptAbMin    = meanAbility - ABILITY_TOLERANCE;
+  const acceptAbMax    = meanAbility + ABILITY_TOLERANCE;
+
+  // ── Flag each student ──────────────────────────────────
+  const studentFlags = students.map(s => {
+    const flags = [];
+    const precocious  = isPrecocious(s, meanGrade, meanAbility);
+    const abilityDiff = Math.abs(s.ability - meanAbility);
+
+    if (abilityDiff > ABILITY_TOLERANCE) {
+      flags.push({
+        type: abilityDiff > 2 ? "crit" : "warn",
+        msg: `Level ${abilityToBook(s.ability)} is ${abilityDiff.toFixed(1)} from class mean (${abilityToBook(meanAbility)})`
+      });
+    }
+
+    if (precocious) {
+      flags.push({ type:"precocious", msg:"Young high-achiever — grade exception applies at this level" });
+    } else {
+      const warnSpread = warnGradeSpread(meanAbility);
+      const spreadViolated = gradeSpread >= allowedSpread || gradeSpread >= warnSpread;
+      if (spreadViolated) {
+        const others = students.filter(o=>o!==s).map(o=>o.grade);
+        const spreadWithout = others.length ? Math.max(...others)-Math.min(...others) : 0;
+        const threshold = gradeSpread < allowedSpread ? warnSpread : allowedSpread;
+        if (spreadWithout < threshold) {
+          const dir = s.grade===maxGrade ? "Highest grade" : s.grade===minGrade ? "Lowest grade" : null;
+          if (dir) flags.push({ type:"warn",
+            msg:`${dir} student — removing them would bring grade spread within guidelines` });
+        }
+      }
+    }
+
+    return { ...s, flags, status: deriveStatus(flags) };
+  });
+
+  // ── Class-level alerts ─────────────────────────────────
+  const alerts = [];
+
+  if (n <= SIZE_SMALL) {
+    alerts.push({ level:"info", icon:"🔵",
+      text:`Class is small (${n} student${n===1?"":"s"}). This class should be prioritised for new enrolments.` });
+  }
+  if (n >= SIZE_CRIT) {
+    alerts.push({ level:"danger", icon:"🔴",
+      text:`Class is full (${n} students). A split is strongly recommended.` });
+  } else if (n >= SIZE_WARN) {
+    alerts.push({ level:"warn", icon:"🟡",
+      text:`Class is nearing capacity (${n}/${SIZE_CRIT} students). Monitor closely as new students join.` });
+  }
+  if (abilitySpread > ABILITY_TOLERANCE * 2) {
+    alerts.push({ level:"danger", icon:"🔴",
+      text:`Level spread of ${abilitySpread.toFixed(1)} exceeds the 2-level guideline. Students at the extremes are likely underserved.` });
+  } else if (abilitySpread > ABILITY_TOLERANCE * 1.5) {
+    alerts.push({ level:"warn", icon:"🟡",
+      text:`Level spread of ${abilitySpread.toFixed(1)} is approaching the limit. Watch for outliers pulling away.` });
+  }
+  const warnSpread = warnGradeSpread(meanAbility);
+  if (gradeSpread >= allowedSpread) {
+    alerts.push({ level:"danger", icon:"🔴",
+      text:`Grade spread is ${gradeSpread}. At mean level ${abilityToBook(meanAbility)}, the hard limit is ${allowedSpread - 1} grade${allowedSpread - 1 === 1 ? "" : "s"} difference.` });
+  } else if (warnSpread !== null && gradeSpread >= warnSpread) {
+    const atLimit = meanAbility >= 6; // level 6+ has a separate warn tier below the hard limit
+    alerts.push({ level:"warn", icon:"🟡",
+      text: atLimit
+        ? `Grade spread is ${gradeSpread}. At this level a spread of ${warnSpread} is allowed but not ideal — consider whether the age mix is working.`
+        : `Grade spread is ${gradeSpread}. This class is at the maximum grade spread for its level.` });
+  }
+
+  const splitRec = buildSplitRecommendation(students, meanAbility, alerts);
+  if (splitRec) alerts.push(splitRec);
+
+  studentFlags.forEach(s => {
+    if (s.flags.some(f=>f.type==="crit")) {
+      alerts.push({ level:"info", icon:"↔️",
+        text:`Consider moving <strong>${s.name}</strong> — level ${abilityToBook(s.ability)} is significantly outside the class range (mean ${abilityToBook(meanAbility)}).` });
+    }
+  });
+
+  const health = alerts.some(a=>a.level==="danger") ? "critical"
+               : alerts.some(a=>a.level==="warn")   ? "warning"
+               : "healthy";
+
+  return { ...cls, health, alerts, studentFlags,
+    stats:{ n, meanGrade, meanAbility, gradeSpread, abilitySpread,
+            minGrade, maxGrade, minAb, maxAb, allowedSpread,
+            acceptGradeMin, acceptGradeMax, acceptAbMin, acceptAbMax }};
+}
+
+function deriveStatus(flags) {
+  if (flags.some(f=>f.type==="crit"))       return "crit";
+  if (flags.some(f=>f.type==="warn"))       return "warn";
+  if (flags.some(f=>f.type==="precocious")) return "precocious";
+  return "ok";
+}
+
+// ════════════════════════════════════════════════════════
+// PLACEMENT FIT SCORING
+// ════════════════════════════════════════════════════════
+function scorePlacement(cls, studentGrade, studentAbility) {
+  const s = cls.stats;
+  if (!s || s.n === 0) return null;
+  const { meanGrade, meanAbility, minGrade, maxGrade, minAb, maxAb, allowedSpread } = s;
+
+  const gradeDiff = Math.abs(studentGrade   - meanGrade);
+  const abDiff    = Math.abs(studentAbility - meanAbility);
+
+  const newGradeSpread = Math.max(maxGrade, studentGrade) - Math.min(minGrade, studentGrade);
+  const newAbSpread    = Math.max(maxAb,    studentAbility) - Math.min(minAb,  studentAbility);
+
+  const wouldBreakGrade = newGradeSpread >= allowedSpread;
+  const wouldBreakAb    = newAbSpread    > ABILITY_TOLERANCE * 2;
+
+  if (gradeDiff <= 0.5 && abDiff <= 0.5 && !wouldBreakGrade && !wouldBreakAb)
+    return "perfect";
+  if (abDiff <= ABILITY_TOLERANCE && !wouldBreakGrade && !wouldBreakAb)
+    return "good";
+  if (abDiff <= ABILITY_TOLERANCE * 1.5 && newGradeSpread <= allowedSpread + 1)
+    return "possible";
+  return null;
+}
+
+// ════════════════════════════════════════════════════════
+// SPLIT RECOMMENDATION
+// ════════════════════════════════════════════════════════
+function buildSplitRecommendation(students, meanAbility, alerts) {
+  const n = students.length;
+  if (n < 6) return null;
+  const hasSizeIssue    = alerts.some(a=>a.level==="danger"&&a.text.includes("split"));
+  const hasAbilityIssue = alerts.some(a=>a.text.includes("Level spread"));
+  if (!hasSizeIssue && !hasAbilityIssue) return null;
+
+  const byAbility   = [...students].sort((a,b)=>a.ability-b.ability);
+  const mid         = Math.floor(byAbility.length/2);
+  const lower       = byAbility.slice(0,mid);
+  const upper       = byAbility.slice(mid);
+  const lowerMeanAb = lower.reduce((a,s)=>a+s.ability,0)/lower.length;
+  const upperMeanAb = upper.reduce((a,s)=>a+s.ability,0)/upper.length;
+  const abilityGap  = upperMeanAb - lowerMeanAb;
+
+  if (hasAbilityIssue || abilityGap >= 1.5) {
+    return { level:"split", icon:"✂️",
+      text:`<strong>Recommended split by level:</strong><br>
+        <strong>Group A</strong> (mean ${abilityToBook(lowerMeanAb)}): ${lower.map(s=>s.name).join(", ")}<br>
+        <strong>Group B</strong> (mean ${abilityToBook(upperMeanAb)}): ${upper.map(s=>s.name).join(", ")}` };
+  }
+
+  const byGrade  = [...students].sort((a,b)=>a.grade-b.grade);
+  const gMid     = Math.floor(byGrade.length/2);
+  const younger  = byGrade.slice(0,gMid);
+  const older    = byGrade.slice(gMid);
+  const yMeanG   = younger.reduce((a,s)=>a+s.grade,0)/younger.length;
+  const oMeanG   = older.reduce((a,s)=>a+s.grade,0)/older.length;
+
+  return { level:"split", icon:"✂️",
+    text:`<strong>Recommended split by grade</strong> (levels are homogenous — class is too large):<br>
+      <strong>Group A</strong> (avg ${gradeLabel(yMeanG)}): ${younger.map(s=>s.name).join(", ")}<br>
+      <strong>Group B</strong> (avg ${gradeLabel(oMeanG)}): ${older.map(s=>s.name).join(", ")}` };
+}
+
+// ════════════════════════════════════════════════════════
+// FILE PARSING
+// ════════════════════════════════════════════════════════
+function parseFile(text, filename) {
+  if (filename.toLowerCase().endsWith(".json")) return JSON.parse(text);
+  const lines = text.trim().split(/\r?\n/);
+  const hdr   = lines[0].split(",").map(h=>h.trim().toLowerCase());
+  // Accept 'class' or 'classid' as the class grouping column
+  const ci  = hdr.indexOf("classid") >= 0 ? hdr.indexOf("classid") : hdr.indexOf("class");
+  const ni  = hdr.indexOf("name");
+  const gi  = hdr.indexOf("grade");
+  // Accept 'level' as alias for 'ability'
+  const bi  = hdr.indexOf("ability") >= 0 ? hdr.indexOf("ability") : hdr.indexOf("level");
+  const di  = hdr.indexOf("day"),   ti=hdr.indexOf("time");
+  const ii  = hdr.indexOf("instructor"), oi=hdr.indexOf("comment");
+  const deli= hdr.indexOf("delivery");
+  if ([ci,ni,gi,bi].includes(-1)) throw new Error("CSV must have columns: ClassID (or class), name, grade, ability (or level)");
+  const map={};
+  const classMeta={};
+  for (let i=1;i<lines.length;i++){
+    const c=lines[i].split(",").map(v=>v.trim());
+    if(c.length<4) continue;
+    const cn=c[ci];
+    if(!cn) continue;
+    if(!map[cn]){ map[cn]=[]; classMeta[cn]={
+      classId:    cn,
+      day:        di>=0   ? c[di]   : "",
+      time:       ti>=0   ? c[ti]   : "",
+      instructor: ii>=0   ? c[ii]   : "",
+      comment:    oi>=0   ? c[oi]   : "",
+      delivery:   deli>=0 ? (/on[il]{2,3}ne/i.test(c[deli].trim()) || c[deli].trim().toLowerCase().includes('online') ? 'online' : 'in-person') : "",
+    }; }
+    map[cn].push({ name:c[ni], grade:Math.min(12, Math.max(-1, parseFloat(c[gi]))), ability:parseFloat(c[bi]) });
+  }
+  return Object.entries(map).map(([className,students])=>({
+    className, students,
+    classId:    classMeta[className].classId,
+    day:        classMeta[className].day,
+    time:       classMeta[className].time,
+    instructor: classMeta[className].instructor,
+    comment:    classMeta[className].comment,
+    delivery:   classMeta[className].delivery,
+  }));
+}
+
+// ════════════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════════════
+let allAnalysed  = [];
+let activeFilter = null;
+let sliderActive = false;
+let placementActive = false;
+
+function processClasses(classes) {
+  allAnalysed = classes.map(analyseClass);
+  allAnalysed.sort((a,b)=>({critical:0,warning:1,healthy:2}[a.health]-{critical:0,warning:1,healthy:2}[b.health]));
+  activeFilter = null; sliderActive = false;
+  currentSort = { key:"health", dir:1 };
+  document.querySelectorAll(".sort-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.sort === "health");
+    const arrow = btn.querySelector(".sort-arrow"); if (arrow) arrow.textContent = " ↑";
+  });
+  const searchInput = document.getElementById("search-input");
+  if (searchInput) { searchInput.value = ""; document.getElementById("search-clear").classList.remove("visible"); }
+  renderSummary(allAnalysed);
+  renderCards(allAnalysed);
+  document.getElementById("export-all-btn").style.display="block";
+  document.getElementById("filter-toggle-btn").style.display="block";
+  document.getElementById("placement-toggle-btn").style.display="block";
+  document.getElementById("search-bar").classList.add("visible");
+  document.getElementById("sort-bar").classList.add("visible");
+  buildFilterPanel(allAnalysed);
+}
+
+function renderSummary(a) {
+  document.getElementById("summary-bar").classList.add("visible");
+  document.getElementById("s-total").textContent   = a.length;
+  document.getElementById("s-healthy").textContent = a.filter(c=>c.health==="healthy").length;
+  document.getElementById("s-warn").textContent    = a.filter(c=>c.health==="warning").length;
+  document.getElementById("s-crit").textContent    = a.filter(c=>c.health==="critical").length;
+  setActiveFilter("filter-all");
+}
+
+function filterByStatus(status) {
+  activeFilter = status;
+  setActiveFilter(status==="critical"?"filter-crit":status==="warning"?"filter-warn":status==="healthy"?"filter-ok":"filter-all");
+  document.querySelectorAll(".class-card").forEach(card => {
+    const show = !status || card.dataset.health===status;
+    card.classList.toggle("filtered-out",!show);
+    if (!show) card.classList.remove("expanded");
+  });
+  applySortToDom();
+  updateFilterCount();
+}
+
+function setActiveFilter(id) {
+  ["filter-all","filter-crit","filter-warn","filter-ok"].forEach(fid=>
+    document.getElementById(fid).classList.toggle("active-filter",fid===id));
+}
+
+function updateFilterCount() {
+  const container  = document.getElementById("results");
+  const total      = container ? container.querySelectorAll(".class-card").length : 0;
+  const visible    = container ? container.querySelectorAll(".class-card:not(.filtered-out)").length : 0;
+  const bar        = document.getElementById("filter-count-bar");
+  const text       = document.getElementById("filter-count-text");
+  const isFiltered = visible < total;
+  bar.classList.toggle("visible", isFiltered);
+  if (isFiltered && text) {
+    text.innerHTML = `Showing <strong>${visible}</strong> of <strong>${total}</strong> classes`;
+  }
+}
+
+function clearAllFilters() {
+  // Clear status filter
+  activeFilter = null;
+  setActiveFilter("filter-all");
+  // Clear class filter panel
+  clearClassFilter();
+  // Restore all cards
+  document.querySelectorAll(".class-card").forEach(card => card.classList.remove("filtered-out"));
+  applySortToDom();
+}
+
+// ════════════════════════════════════════════════════════
+// SORT
+// ════════════════════════════════════════════════════════
+let currentSort = { key:"health", dir:1 };
+
+const DAY_ORDER = { mon:0, tue:1, wed:2, thu:3, fri:4, sat:5, sun:6 };
+
+function sortKey(cls, key) {
+  const s = cls.stats || {};
+  switch(key) {
+    case "health":     return {critical:0, warning:1, healthy:2}[cls.health] ?? 9;
+    case "datetime":   return (DAY_ORDER[(cls.day||"").trim().toLowerCase().slice(0,3)] ?? 9) * 10000
+                            + timeToMins(cls.time||"");
+    case "level":      return s.meanAbility ?? 999;
+    case "grade":      return s.meanGrade ?? 999;
+    case "instructor": return (cls.instructor||"zzz").toLowerCase();
+    case "size":       return s.n ?? 0;
+    default:           return 0;
+  }
+}
+
+function timeToMins(t) {
+  const m = t.match(/(\d{1,2}):(\d{2})/);
+  return m ? parseInt(m[1])*60 + parseInt(m[2]) : 9999;
+}
+
+function setSort(key) {
+  if (currentSort.key === key) {
+    currentSort.dir *= -1; // toggle direction
+  } else {
+    currentSort = { key, dir: 1 };
+  }
+  // Update button states
+  document.querySelectorAll(".sort-btn").forEach(btn => {
+    const active = btn.dataset.sort === key;
+    btn.classList.toggle("active", active);
+    const arrow = btn.querySelector(".sort-arrow");
+    if (arrow) arrow.textContent = currentSort.dir === 1 ? " ↑" : " ↓";
+  });
+  applySortToDom();
+}
+
+function applySortToDom() {
+  const container = document.getElementById("results");
+  if (!container) return;
+  const cards = [...container.querySelectorAll(".class-card")];
+  const visible = cards.filter(c => !c.classList.contains("filtered-out"));
+  const hidden  = cards.filter(c =>  c.classList.contains("filtered-out"));
+
+  visible.sort((a, b) => {
+    const ai = parseInt(a.dataset.idx), bi = parseInt(b.dataset.idx);
+    const ac = allAnalysed[ai], bc = allAnalysed[bi];
+    const av = sortKey(ac, currentSort.key);
+    const bv = sortKey(bc, currentSort.key);
+    const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+    return cmp * currentSort.dir;
+  });
+
+  // Append visible (sorted) first, hidden after — hidden are display:none so order doesn't matter
+  [...visible, ...hidden].forEach(card => container.appendChild(card));
+  updateFilterCount();
+}
+
+function renderCards(analysed) {
+  Object.values(chartInstances).forEach(c=>c.destroy());
+  Object.keys(chartInstances).forEach(k=>delete chartInstances[k]);
+  const container=document.getElementById("results");
+  container.innerHTML="";
+  analysed.forEach((cls,idx)=>container.appendChild(buildCard(cls,idx)));
+  if (activeFilter) filterByStatus(activeFilter);
+  applySortToDom();
+}
+
+function buildCard(cls, idx) {
+  const s = cls.stats;
+  const healthLabel = {critical:"Action required",warning:"Needs attention",healthy:"Healthy"}[cls.health];
+  const healthIcon  = {critical:"🔴",warning:"🟡",healthy:"🟢"}[cls.health];
+
+  const gradeChipCls = s.gradeSpread >= s.allowedSpread ? "crit"
+                     : s.gradeSpread >= warnGradeSpread(s.meanAbility) ? "warn"
+                     : "";
+  const abChipCls    = s.abilitySpread>ABILITY_TOLERANCE*2 ? "crit" : s.abilitySpread>ABILITY_TOLERANCE*1.5 ? "warn" : "";
+  const szChipCls    = s.n>=SIZE_CRIT ? "crit" : s.n>=SIZE_WARN ? "warn" : "";
+
+  const alertsHTML = cls.alerts.map(a=>`
+    <div class="alert ${a.level==="split"?"split":a.level==="danger"?"danger":a.level==="warn"?"warn":"info"}">
+      <span class="alert-icon">${a.icon}</span><span>${a.text}</span>
+    </div>`).join("");
+
+  const dangerCount = cls.alerts.filter(a=>a.level==="danger").length;
+  const warnCount   = cls.alerts.filter(a=>a.level==="warn").length;
+  const splitCount  = cls.alerts.filter(a=>a.level==="split").length;
+  const isSmall     = cls.alerts.some(a=>a.text&&a.text.includes("small"));
+  let miniAlerts="";
+  if (dangerCount) miniAlerts+=`<span class="mini-alert danger">${dangerCount} critical</span>`;
+  if (warnCount)   miniAlerts+=`<span class="mini-alert warn">${warnCount} warning${warnCount>1?"s":""}</span>`;
+  if (splitCount)  miniAlerts+=`<span class="mini-alert split">✂️ split</span>`;
+  if (isSmall)     miniAlerts+=`<span class="mini-alert small">needs filling</span>`;
+
+  const abRangeStr    = `${abilityToBook(s.acceptAbMin)} – ${abilityToBook(s.acceptAbMax)}`;
+  const gradeRangeStr = `${gradeLabel(Math.round(s.acceptGradeMin))} – ${gradeLabel(Math.round(s.acceptGradeMax))}`;
+
+  const deliveryBadge = cls.delivery
+    ? (() => {
+        const d = cls.delivery.trim().toLowerCase().replace(/[^a-z-]/g,'');
+        const isOnline = d.includes('online');
+        return `<span style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:8px;margin-left:6px;vertical-align:middle;${isOnline?'background:rgba(188,140,255,.15);color:#d2a8ff;':'background:rgba(63,185,80,.12);color:#3fb950;'}">${isOnline?'🌐 Online':'🏫 In-person'}</span>`;
+      })()
+    : "";
+
+  const schedStr = (cls.day || cls.time)
+    ? ` &nbsp;·&nbsp; ${[cls.day, cls.time].filter(Boolean).join(" ")}`
+    : "";
+  const instructorStr = cls.instructor ? ` &nbsp;·&nbsp; ${cls.instructor}` : "";
+  const commentShort  = cls.comment
+    ? `<div class="card-header-comment">${cls.comment.length > 60 ? cls.comment.slice(0,57)+"…" : cls.comment}</div>`
+    : "";
+  const commentFull   = cls.comment
+    ? `<div class="class-comment"><span class="comment-icon">💬</span><span>${cls.comment}</span></div>`
+    : "";
+
+  const div = document.createElement("div");
+  div.className = `class-card${cls.health==="critical"?" expanded":""}`;
+  div.dataset.health = cls.health;
+  div.dataset.idx    = idx;
+  div.dataset.day    = (cls.day||"").trim().toLowerCase().slice(0,3);
+  div.dataset.chartBuilt = "false";
+
+  div.innerHTML=`
+    <div class="card-header-row" onclick="toggleCard(this)">
+      <div class="card-header-left">
+        <span class="card-chevron">▶</span>
+        <div style="min-width:0;">
+          <div class="card-header-name">${cls.className}${deliveryBadge}</div>
+          <div class="card-header-meta">${s.n} students &nbsp;·&nbsp; ${abRangeStr} &nbsp;·&nbsp; ${gradeRangeStr}${schedStr}${instructorStr}</div>
+          ${commentShort}
+        </div>
+      </div>
+      <div class="card-header-right">
+        <div class="card-header-alerts">${miniAlerts}</div>
+        <span class="health-badge ${cls.health}">${healthIcon} ${healthLabel}</span>
+      </div>
+    </div>
+    <div class="card-body-wrap">
+      ${commentFull}
+      <div class="card-stats">
+        <div class="stat-chip ${szChipCls}">
+          <div class="s-label">Students</div>
+          <div class="s-val">${s.n} / ${SIZE_CRIT}</div>
+        </div>
+        <div class="stat-chip ${abChipCls}">
+          <div class="s-label">Level range</div>
+          <div class="s-val">${abilityToBook(s.minAb)} – ${abilityToBook(s.maxAb)} &nbsp;(spread ${s.abilitySpread.toFixed(1)})</div>
+        </div>
+        <div class="stat-chip ${gradeChipCls}">
+          <div class="s-label">Grade range</div>
+          <div class="s-val">${gradeLabel(s.minGrade)} – ${gradeLabel(s.maxGrade)} &nbsp;(spread ${s.gradeSpread}, max ${s.allowedSpread})</div>
+        </div>
+      </div>
+      ${alertsHTML ? `<div class="alerts">${alertsHTML}</div>` : ""}
+      <div class="card-body">
+        <div>
+          <div class="section-label">Level vs Grade</div>
+          <div class="chart-wrap"><canvas id="chart-${idx}"></canvas></div>
+          <div class="legend">
+            <div class="legend-item"><span class="flag-dot green"></span>Within guidelines</div>
+            <div class="legend-item"><span class="flag-dot amber"></span>Borderline</div>
+            <div class="legend-item"><span class="flag-dot red"></span>Outside guidelines</div>
+            <div class="legend-item"><span class="flag-dot purple"></span>Precocious exception</div>
+            <div class="legend-item" id="legend-candidate-${idx}" style="display:none"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;border:1.5px dashed rgba(200,210,220,0.7);margin-right:5px;vertical-align:middle;"></span>Candidate</div>
+          </div>
+        </div>
+        <div>
+          <div class="section-label">Students</div>
+          <div class="table-wrap">${buildTable(cls)}</div>
+        </div>
+      </div>
+      <div style="margin-top:14px;text-align:right">
+        <button class="card-export-btn" onclick="exportClass(${idx})">↓ Export CSV</button>
+      </div>
+    </div>`;
+
+  if (cls.health==="critical") {
+    div.dataset.chartBuilt="true";
+    setTimeout(()=>buildChart(idx, cls, currentCandidate()), 0);
+  }
+  return div;
+}
+
+function toggleCard(headerRow) {
+  const card = headerRow.closest(".class-card");
+  const wasExpanded = card.classList.contains("expanded");
+  card.classList.toggle("expanded");
+  if (!wasExpanded && card.dataset.chartBuilt==="false") {
+    const idx=parseInt(card.dataset.idx);
+    card.dataset.chartBuilt="true";
+    buildChart(idx, allAnalysed[idx], currentCandidate());
+  }
+}
+
+function buildTable(cls) {
+  const rows=cls.studentFlags.map(s=>{
+    const dot={ok:"green",warn:"amber",crit:"red",precocious:"purple"}[s.status];
+    const tip=s.flags.map(f=>f.msg).join("; ");
+    const flagIcon=s.flags.length?` <span style="font-size:11px;color:var(--muted)" title="${tip}">⚑</span>`:"";
+    return `<tr title="${tip}">
+      <td><span class="flag-dot ${dot}"></span>${s.name}${flagIcon}</td>
+      <td style="color:var(--muted)">${gradeLabel(s.grade)}</td>
+      <td style="color:var(--muted)">${abilityToBook(s.ability)}</td>
+    </tr>`;
+  }).join("");
+  return `<table>
+    <thead><tr><th>Name</th><th>Grade</th><th>Level</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+const chartInstances = {}; // idx → Chart instance
+
+function buildChart(idx, cls, candidate) {
+  // Destroy existing if rebuilding
+  if (chartInstances[idx]) { chartInstances[idx].destroy(); delete chartInstances[idx]; }
+
+  const ctx = document.getElementById(`chart-${idx}`);
+  if (!ctx) return;
+  const s   = cls.stats;
+  const colorMap = {ok:"#3fb950",warn:"#d29922",crit:"#f85149",precocious:"#bc8cff"};
+
+  const points = cls.studentFlags.map(st=>({
+    x:st.ability, y:st.grade, name:st.name, status:st.status,
+    tip:st.flags.map(f=>f.msg).join("\n"),
+  }));
+
+  // Candidate dot dataset — shown when placement filter is active
+  const candidateData = (candidate && placementActive)
+    ? [{ x:candidate.ability, y:candidate.grade, name:"Candidate", status:"candidate", tip:"" }]
+    : [];
+
+  const chart = new Chart(ctx.getContext("2d"),{
+    type:"scatter",
+    data:{ datasets:[
+      { label:"Students", data:points,
+        backgroundColor:points.map(d=>colorMap[d.status]+"bb"),
+        borderColor:points.map(d=>colorMap[d.status]),
+        borderWidth:1.5, pointRadius:8, pointHoverRadius:11 },
+      // Candidate dot
+      { label:"Candidate", data:candidateData,
+        backgroundColor:"rgba(200,210,220,0.25)",
+        borderColor:"rgba(200,210,220,0.7)",
+        borderWidth:2, pointRadius:10, pointHoverRadius:12,
+        borderDash:[3,3] },
+      // Vertical crosshair at mean ability
+      { type:"line", label:"", data:[{x:s.meanAbility,y:s.minGrade-0.5},{x:s.meanAbility,y:s.maxGrade+0.5}],
+        borderColor:"rgba(88,166,255,0.25)", borderWidth:1, borderDash:[4,4], pointRadius:0, fill:false },
+      // Horizontal crosshair at mean grade
+      { type:"line", label:"", data:[{x:s.minAb-0.5,y:s.meanGrade},{x:s.maxAb+0.5,y:s.meanGrade}],
+        borderColor:"rgba(88,166,255,0.25)", borderWidth:1, borderDash:[4,4], pointRadius:0, fill:false },
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          filter:item=>item.datasetIndex<=1,
+          callbacks:{
+            label:ctx=>{
+              const d=ctx.raw;
+              if (d.name==="Candidate") return `Candidate  (${gradeLabel(d.y)}, ${abilityToBook(d.x)})`;
+              const lines=[`${d.name}  (${gradeLabel(d.y)}, ${abilityToBook(d.x)})`];
+              if(d.tip) d.tip.split("\n").forEach(t=>lines.push("⚑ "+t));
+              return lines;
+            }
+          },
+          backgroundColor:"#1c2333",borderColor:"#2d3f55",borderWidth:1,
+          titleColor:"#e6edf3",bodyColor:"#adbac7",padding:10,
+        }
+      },
+      scales:{
+        x:{ title:{display:true,text:"Level",color:"#4a5568",font:{size:11}},
+            grid:{color:"#0d1117"}, ticks:{color:"#4a5568",
+              callback:val=>abilityToBook(val)} },
+        y:{ title:{display:true,text:"Grade",color:"#4a5568",font:{size:11}},
+            grid:{color:"#0d1117"}, ticks:{color:"#4a5568",
+              stepSize:1, callback:val=>gradeLabel(val)} },
+      }
+    }
+  });
+  chartInstances[idx] = chart;
+}
+
+// Update just the candidate dot on visible charts without rebuilding
+function updateChartCandidate(candidate) {
+  Object.entries(chartInstances).forEach(([idx, chart]) => {
+    const data = (candidate && placementActive)
+      ? [{ x:candidate.ability, y:candidate.grade, name:"Candidate", status:"candidate", tip:"" }]
+      : [];
+    chart.data.datasets[1].data = data;
+    chart.update("none");
+    const leg = document.getElementById(`legend-candidate-${idx}`);
+    if (leg) leg.style.display = (candidate && placementActive) ? "" : "none";
+  });
+}
+
+// ════════════════════════════════════════════════════════
+// SEARCH
+// ════════════════════════════════════════════════════════
+function onSearch(query) {
+  const q = query.trim().toLowerCase();
+  document.getElementById("search-clear").classList.toggle("visible", q.length > 0);
+
+  // Clear previous highlights
+  document.querySelectorAll(".class-card").forEach(card => {
+    card.classList.remove("search-match-highlight", "filtered-out");
+    card.querySelectorAll("tbody tr").forEach(r => r.classList.remove("search-student-match"));
+  });
+
+  if (!q) return;
+
+  let firstMatch = null;
+
+  document.querySelectorAll(".class-card").forEach(card => {
+    const idx = parseInt(card.dataset.idx);
+    const cls = allAnalysed[idx];
+
+    // Match class ID or class name
+    const classIdMatch = (cls.classId||"").toLowerCase().includes(q)
+                      || cls.className.toLowerCase().includes(q);
+
+    // Match student names
+    const matchingStudents = cls.studentFlags.filter(s =>
+      s.name.toLowerCase().includes(q)
+    );
+
+    if (classIdMatch || matchingStudents.length > 0) {
+      card.classList.remove("filtered-out");
+      card.classList.add("search-match-highlight");
+
+      // Expand the card
+      if (!card.classList.contains("expanded")) {
+        card.classList.add("expanded");
+        if (card.dataset.chartBuilt === "false") {
+          card.dataset.chartBuilt = "true";
+          buildChart(idx, cls, currentCandidate());
+        }
+      }
+
+      // Highlight matching student rows
+      if (matchingStudents.length > 0 && !classIdMatch) {
+        const rows = card.querySelectorAll("tbody tr");
+        rows.forEach(row => {
+          const nameCell = row.querySelector("td:first-child");
+          if (nameCell && nameCell.textContent.trim().toLowerCase().includes(q)) {
+            row.classList.add("search-student-match");
+          }
+        });
+      }
+
+      if (!firstMatch) firstMatch = card;
+    } else {
+      card.classList.add("filtered-out");
+    }
+  });
+
+  // Scroll first match into view
+  if (firstMatch) firstMatch.scrollIntoView({ behavior:"smooth", block:"start" });
+}
+
+function clearSearch() {
+  document.getElementById("search-input").value = "";
+  document.getElementById("search-clear").classList.remove("visible");
+  document.querySelectorAll(".class-card").forEach(card => {
+    card.classList.remove("search-match-highlight", "filtered-out");
+    card.querySelectorAll("tbody tr").forEach(r => r.classList.remove("search-student-match"));
+  });
+  applySortToDom();
+}
+
+// ════════════════════════════════════════════════════════
+// EXPORT
+// ════════════════════════════════════════════════════════
+function buildCSV(analysed) {
+  const rows=[["Class","Name","Grade","Ability","Level","Status","Flags"]];
+  analysed.forEach(cls=>{
+    cls.studentFlags.forEach(s=>{
+      rows.push([cls.className,s.name,s.grade,s.ability.toFixed(2),
+                 abilityToBook(s.ability),s.status,s.flags.map(f=>f.msg).join(" | ")]);
+    });
+  });
+  return rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+}
+function downloadCSV(csv,filename){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download=filename; a.click();
+}
+function exportAll()      { downloadCSV(buildCSV(allAnalysed),"class-health.csv"); }
+function exportClass(idx) { downloadCSV(buildCSV([allAnalysed[idx]]),`${allAnalysed[idx].className}.csv`); }
+
+// ════════════════════════════════════════════════════════
+// FILE HANDLING
+// ════════════════════════════════════════════════════════
+function onDragOver(e){e.preventDefault();document.getElementById("dropzone").classList.add("dragging");}
+function onDragLeave(){document.getElementById("dropzone").classList.remove("dragging");}
+function onDrop(e){e.preventDefault();document.getElementById("dropzone").classList.remove("dragging");if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0]);}
+function onFileChange(e){if(e.target.files[0])processFile(e.target.files[0]);}
+
+function processFile(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{showError(null);showSpinner(true);
+      const classes=parseFile(e.target.result,file.name);
+      setTimeout(()=>{try{processClasses(classes);}catch(err){showError(err.message);}showSpinner(false);},30);
+    }catch(err){showError(err.message);showSpinner(false);}
+  };
+  reader.readAsText(file);
+}
+
+function loadSample(){
+  showError(null);showSpinner(true);
+  setTimeout(()=>{
+    processClasses([
+      { className:"Group A — Beginners", day:"Mon", time:"16:00", instructor:"Ms. Chen", delivery:"in-person", comment:"Lively group, responds well to games. Room 3.", students:[
+        {name:"Alice", grade:1, ability:1.5},
+        {name:"Bob",   grade:2, ability:2.0},
+        {name:"Carol", grade:1, ability:1.0},
+        {name:"Dan",   grade:2, ability:2.5},
+        {name:"Eve",   grade:3, ability:1.5},
+      ]},
+      { className:"Group B — Mid Level", day:"Wed", time:"15:30", instructor:"Mr. Patel", delivery:"online", comment:"Strong group overall. Kira is pulling ahead — monitor for move.", students:[
+        {name:"Frank", grade:4, ability:5.0},
+        {name:"Grace", grade:5, ability:5.5},
+        {name:"Henry", grade:4, ability:6.0},
+        {name:"Iris",  grade:5, ability:4.5},
+        {name:"Jack",  grade:6, ability:5.0},
+        {name:"Kira",  grade:5, ability:7.5},
+        {name:"Leo",   grade:4, ability:5.0},
+        {name:"Mia",   grade:5, ability:5.5},
+        {name:"Ned",   grade:5, ability:6.0},
+      ]},
+      { className:"Group C — Advanced", day:"Sat", time:"10:00", instructor:"Ms. Chen", delivery:"in-person", comment:"Uma is exceptional — precocious placement working well so far.", students:[
+        {name:"Olivia", grade:5,  ability:10.0},
+        {name:"Pete",   grade:8,  ability:11.0},
+        {name:"Quinn",  grade:9,  ability:10.5},
+        {name:"Rosa",   grade:7,  ability:9.5},
+        {name:"Sam",    grade:10, ability:11.5},
+        {name:"Tara",   grade:6,  ability:10.0},
+        {name:"Uma",    grade:2,  ability:10.5},
+        {name:"Victor", grade:9,  ability:10.0},
+        {name:"Wendy",  grade:8,  ability:9.0},
+        {name:"Xavi",   grade:7,  ability:11.0},
+        {name:"Yara",   grade:10, ability:10.5},
+      ]},
+    ]);
+    showSpinner(false);
+  },30);
+}
+
+function showError(msg){const el=document.getElementById("error-box");if(msg){el.textContent="⚠ "+msg;el.style.display="block";}else el.style.display="none";}
+function showSpinner(on){document.getElementById("spinner").style.display=on?"block":"none";}
+
+// ════════════════════════════════════════════════════════
+// REMOTE DATA FETCH
+// ════════════════════════════════════════════════════════
+function fetchData() {
+  if (!CONFIG.dataUrl) {
+    showError("No data URL configured. Open the HTML file and paste your Google Sheets CSV URL into the CONFIG.dataUrl field.");
+    return;
+  }
+
+  const btn = document.getElementById("refresh-btn");
+  btn.classList.add("spinning");
+  showError(null); showSpinner(true);
+
+  // Google Sheets blocks direct fetch() due to CORS — route through a proxy.
+  // corsproxy.io is a free, open-source proxy that passes the request through.
+  const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(CONFIG.dataUrl);
+
+  fetch(proxyUrl, { cache:"no-cache" })
+    .then(r => {
+      if (!r.ok) throw new Error(`Server returned HTTP ${r.status}.`);
+      return r.text();
+    })
+    .then(text => {
+      if (!text || text.trim().length === 0)
+        throw new Error("The sheet returned empty data. Check that the correct tab is published.");
+      try {
+        const classes = parseFile(text, "data.csv");
+        if (!classes || classes.length === 0)
+          throw new Error("No classes found. Check that the published tab has the right column headers.");
+        processClasses(classes);
+        const now   = new Date();
+        const stamp = now.toLocaleDateString(undefined, {month:"short",day:"numeric",year:"numeric"})
+                    + " " + now.toLocaleTimeString(undefined, {hour:"2-digit",minute:"2-digit"});
+        const el = document.getElementById("last-updated");
+        el.textContent = `Updated ${stamp}`;
+        el.classList.add("visible");
+      } catch(err) {
+        showError("Failed to parse data: " + err.message);
+      }
+    })
+    .catch(err => showError("Could not fetch data: " + (err.message || "Unknown error")))
+    .finally(() => { btn.classList.remove("spinning"); showSpinner(false); });
+}
+
+// ════════════════════════════════════════════════════════
+// FILTER CLASSES PANEL
+// ════════════════════════════════════════════════════════
+let filterActive = false;
+let classFilters = {}; // current active filter state
+
+function buildFilterPanel(analysed) {
+  // Collect unique values
+  const days        = [...new Set(analysed.map(c=>(c.day||"").trim()).filter(Boolean))];
+  const instructors = [...new Set(analysed.map(c=>(c.instructor||"").trim()).filter(Boolean))].sort();
+  const deliveries  = [...new Set(analysed.map(c=>(c.delivery||"").trim().toLowerCase()).filter(Boolean))];
+  const maxSize     = Math.max(...analysed.map(c=>c.stats.n||0), SIZE_CRIT);
+
+  // Reset filters
+  classFilters = {
+    days: [], instructors: [], delivery: [],
+    health: [],
+    levelMin: 0, levelMax: SLIDER_STEPS.length - 1,
+    gradeMin: -1, gradeMax: 12,
+    sizeMax: maxSize, needsFilling: false,
+  };
+
+  const panel = document.getElementById("filter-overlay");
+  // Keep header row, rebuild body
+  panel.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3>⚙ Filter Classes</h3>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button onclick="toggleMinimize('filter-overlay')" style="background:transparent;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 4px;line-height:1;" title="Minimise">—</button>
+        <button onclick="toggleFilterPanel()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1;">✕</button>
+      </div>
+    </div>
+    <div class="overlay-body">
+
+    <div class="flt-section">
+      <div class="flt-label">Health Status</div>
+      <div class="flt-chips">
+        <button class="flt-chip" data-group="health" data-val="critical" onclick="toggleFltChip(this)">🔴 Action required</button>
+        <button class="flt-chip" data-group="health" data-val="warning"  onclick="toggleFltChip(this)">🟡 Needs attention</button>
+        <button class="flt-chip" data-group="health" data-val="healthy"  onclick="toggleFltChip(this)">🟢 Healthy</button>
+      </div>
+    </div>
+    <hr class="flt-divider"/>
+
+    ${days.length ? `
+    <div class="flt-section">
+      <div class="flt-label">Day</div>
+      <div class="flt-chips">
+        ${days.map(d=>`<button class="flt-chip" data-group="days" data-val="${d.toLowerCase().slice(0,3)}" onclick="toggleFltChip(this)">${d}</button>`).join("")}
+      </div>
+    </div>` : ""}
+
+    ${instructors.length ? `
+    <div class="flt-section">
+      <div class="flt-label">Instructor</div>
+      <div class="flt-chips">
+        ${instructors.map(i=>`<button class="flt-chip" data-group="instructors" data-val="${i}" onclick="toggleFltChip(this)">${i}</button>`).join("")}
+      </div>
+    </div>` : ""}
+
+    ${deliveries.length ? `
+    <div class="flt-section">
+      <div class="flt-label">Delivery</div>
+      <div class="flt-chips">
+        ${deliveries.map(d=>`<button class="flt-chip" data-group="delivery" data-val="${d}" onclick="toggleFltChip(this)">${d.includes('online')?'🌐 Online':'🏫 In-person'}</button>`).join("")}
+      </div>
+    </div>` : ""}
+
+    <hr class="flt-divider"/>
+
+    <div class="flt-section">
+      <div class="flt-label">Level Range <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;">(classes whose accepted range overlaps)</span></div>
+      <div class="flt-range-row" style="margin-bottom:6px;">
+        <span class="flt-range-val" id="flt-level-min-val">${abilityToBook(SLIDER_STEPS[0])}</span>
+        <input class="flt-range-slider" type="range" id="flt-level-min" min="0" max="${SLIDER_STEPS.length-1}" step="1" value="0"
+          oninput="onFltLevelRange()"/>
+      </div>
+      <div class="flt-range-row">
+        <span class="flt-range-val" id="flt-level-max-val">${abilityToBook(SLIDER_STEPS[SLIDER_STEPS.length-1])}</span>
+        <input class="flt-range-slider" type="range" id="flt-level-max" min="0" max="${SLIDER_STEPS.length-1}" step="1" value="${SLIDER_STEPS.length-1}"
+          oninput="onFltLevelRange()"/>
+      </div>
+    </div>
+
+    <div class="flt-section">
+      <div class="flt-label">Grade Range</div>
+      <div class="flt-range-row" style="margin-bottom:6px;">
+        <span class="flt-range-val" id="flt-grade-min-val">${gradeLabel(-1)}</span>
+        <input class="flt-range-slider" type="range" id="flt-grade-min" min="-1" max="12" step="1" value="-1"
+          oninput="onFltGradeRange()"/>
+      </div>
+      <div class="flt-range-row">
+        <span class="flt-range-val" id="flt-grade-max-val">${gradeLabel(12)}</span>
+        <input class="flt-range-slider" type="range" id="flt-grade-max" min="-1" max="12" step="1" value="12"
+          oninput="onFltGradeRange()"/>
+      </div>
+    </div>
+
+    <div class="flt-section">
+      <div class="flt-label">Max Class Size</div>
+      <div class="flt-range-row">
+        <span class="flt-range-val" id="flt-size-val">Any</span>
+        <input class="flt-range-slider" type="range" id="flt-size" min="1" max="${maxSize}" step="1" value="${maxSize}"
+          oninput="onFltSize(${maxSize})"/>
+      </div>
+      <div style="margin-top:6px;">
+        <button class="flt-chip" id="flt-needs-filling" onclick="toggleNeedsFilling()">Needs filling only</button>
+      </div>
+    </div>
+
+    <hr class="flt-divider"/>
+    <button onclick="clearClassFilter()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:7px;font-family:inherit;font-size:12px;cursor:pointer;width:100%;">✕ Clear all filters</button>
+    <div id="filter-result-count" style="font-size:12px;color:var(--muted);margin-top:10px;text-align:center;"></div>
+  </div>
+  `;
+}
+
+function toggleFltChip(btn) {
+  const group = btn.dataset.group;
+  const val   = btn.dataset.val;
+  btn.classList.toggle("active");
+  if (btn.classList.contains("active")) {
+    if (!classFilters[group].includes(val)) classFilters[group].push(val);
+  } else {
+    classFilters[group] = classFilters[group].filter(v=>v!==val);
+  }
+  applyClassFilter();
+}
+
+function onFltLevelRange() {
+  let lo = parseInt(document.getElementById("flt-level-min").value);
+  let hi = parseInt(document.getElementById("flt-level-max").value);
+  if (lo > hi) { lo = hi; document.getElementById("flt-level-min").value = lo; }
+  document.getElementById("flt-level-min-val").textContent = abilityToBook(SLIDER_STEPS[lo]);
+  document.getElementById("flt-level-max-val").textContent = abilityToBook(SLIDER_STEPS[hi]);
+  classFilters.levelMin = lo; classFilters.levelMax = hi;
+  applyClassFilter();
+}
+
+function onFltGradeRange() {
+  let lo = parseInt(document.getElementById("flt-grade-min").value);
+  let hi = parseInt(document.getElementById("flt-grade-max").value);
+  if (lo > hi) { lo = hi; document.getElementById("flt-grade-min").value = lo; }
+  document.getElementById("flt-grade-min-val").textContent = gradeLabel(lo);
+  document.getElementById("flt-grade-max-val").textContent = gradeLabel(hi);
+  classFilters.gradeMin = lo; classFilters.gradeMax = hi;
+  applyClassFilter();
+}
+
+function onFltSize(maxSize) {
+  const val = parseInt(document.getElementById("flt-size").value);
+  document.getElementById("flt-size-val").textContent = val >= maxSize ? "Any" : `≤ ${val}`;
+  classFilters.sizeMax = val;
+  applyClassFilter();
+}
+
+function toggleNeedsFilling() {
+  classFilters.needsFilling = !classFilters.needsFilling;
+  document.getElementById("flt-needs-filling").classList.toggle("active", classFilters.needsFilling);
+  applyClassFilter();
+}
+
+function applyClassFilter() {
+  const f   = classFilters;
+  const lvMin = SLIDER_STEPS[f.levelMin];
+  const lvMax = SLIDER_STEPS[f.levelMax];
+  let shown = 0;
+
+  document.querySelectorAll(".class-card").forEach(card => {
+    const idx = parseInt(card.dataset.idx);
+    const cls = allAnalysed[idx];
+    const s   = cls.stats;
+
+    // Health
+    if (f.health.length && !f.health.includes(cls.health)) { card.classList.add("filtered-out"); return; }
+    // Day
+    const clsDay = (cls.day||"").trim().toLowerCase().slice(0,3);
+    if (f.days.length && !f.days.includes(clsDay)) { card.classList.add("filtered-out"); return; }
+    // Instructor
+    if (f.instructors.length && !f.instructors.includes(cls.instructor||"")) { card.classList.add("filtered-out"); return; }
+    // Delivery
+    if (f.delivery.length && !f.delivery.includes((cls.delivery||"").toLowerCase())) { card.classList.add("filtered-out"); return; }
+    // Level range — class accepted level range must overlap filter range
+    if (s.acceptAbMin > lvMax || s.acceptAbMax < lvMin) { card.classList.add("filtered-out"); return; }
+    // Grade range — class accepted grade range must overlap filter range
+    if (s.acceptGradeMin > f.gradeMax || s.acceptGradeMax < f.gradeMin) { card.classList.add("filtered-out"); return; }
+    // Size
+    if (s.n > f.sizeMax) { card.classList.add("filtered-out"); return; }
+    // Needs filling
+    if (f.needsFilling && s.n > SIZE_SMALL) { card.classList.add("filtered-out"); return; }
+
+    card.classList.remove("filtered-out");
+    shown++;
+  });
+
+  // Update count badge on button
+  const activeCount = countActiveFilters();
+  const badge = document.getElementById("active-filter-count");
+  badge.style.display = activeCount > 0 ? "inline-block" : "none";
+  badge.textContent   = activeCount;
+
+  const countEl = document.getElementById("filter-result-count");
+  if (countEl) countEl.textContent = `Showing ${shown} of ${allAnalysed.length} classes`;
+  applySortToDom();
+}
+
+function countActiveFilters() {
+  const f = classFilters;
+  if (!f) return 0;
+  const maxSizeDefault = Math.max(...allAnalysed.map(c=>c.stats.n||0), SIZE_CRIT);
+  return f.health.length + f.days.length + f.instructors.length + f.delivery.length
+    + (f.levelMin > 0 || f.levelMax < SLIDER_STEPS.length-1 ? 1 : 0)
+    + (f.gradeMin > -1 || f.gradeMax < 12 ? 1 : 0)
+    + (f.sizeMax < maxSizeDefault ? 1 : 0)
+    + (f.needsFilling ? 1 : 0);
+}
+
+function clearClassFilter() {
+  // Reset all chip buttons
+  document.querySelectorAll("#filter-overlay .flt-chip").forEach(b=>b.classList.remove("active"));
+  // Reset sliders via rebuild (easiest way to reset dynamic maxes)
+  buildFilterPanel(allAnalysed);
+  classFilters.days=[]; classFilters.instructors=[]; classFilters.delivery=[]; classFilters.health=[];
+  classFilters.levelMin=0; classFilters.levelMax=SLIDER_STEPS.length-1;
+  classFilters.gradeMin=-1; classFilters.gradeMax=12;
+  const maxSize = Math.max(...allAnalysed.map(c=>c.stats.n||0), SIZE_CRIT);
+  classFilters.sizeMax=maxSize; classFilters.needsFilling=false;
+  document.querySelectorAll(".class-card").forEach(card=>card.classList.remove("filtered-out"));
+  document.getElementById("active-filter-count").style.display="none";
+  const countEl = document.getElementById("filter-result-count");
+  if (countEl) countEl.textContent = "";
+}
+
+function toggleFilterPanel() {
+  filterActive = !filterActive;
+  const panel = document.getElementById("filter-overlay");
+  const btn   = document.getElementById("filter-toggle-btn");
+  panel.classList.toggle("visible", filterActive);
+  btn.style.borderColor = filterActive ? "#e3b341" : "var(--border)";
+  btn.style.color       = filterActive ? "#e3b341" : "var(--text)";
+  if (!filterActive) clearClassFilter();
+}
+
+function toggleMinimize(id) {
+  const el  = document.getElementById(id);
+  const btn = el.querySelector('[title="Minimise"]');
+  const minimized = el.classList.toggle("minimized");
+  if (btn) btn.textContent = minimized ? "▢" : "—";
+}
+
+let placementDelivery = "any"; // "any" | "online" | "in-person"
+
+function setPlacementDelivery(val) {
+  placementDelivery = val;
+  ["any","online","in-person"].forEach(v => {
+    const id = `p-delivery-${v==="in-person"?"inperson":v}`;
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.toggle("active", v === val);
+  });
+  if (sliderActive) runPlacementFilter();
+}
+
+// ════════════════════════════════════════════════════════
+// PLACEMENT PANEL
+// ════════════════════════════════════════════════════════
+function togglePlacementPanel(){
+  placementActive=!placementActive;
+  const panel=document.getElementById("placement-overlay");
+  const btn=document.getElementById("placement-toggle-btn");
+  panel.classList.toggle("visible",placementActive);
+  btn.style.borderColor=placementActive?"var(--accent)":"var(--border)";
+  btn.style.color=placementActive?"var(--accent)":"var(--text)";
+  if(!placementActive) clearPlacementFilter();
+  else { setPlacementDelivery("any"); runPlacementFilter(); }
+}
+
+function clearPlacementFilter(){
+  sliderActive=false;
+  updateChartCandidate(null); // remove candidate dots from all charts
+  placementDelivery="any";
+  document.getElementById("p-grade-val").textContent="—";
+  document.getElementById("p-ability-val").textContent="—";
+  document.getElementById("p-grade").value=7;
+  document.getElementById("p-ability").value=24;
+  document.getElementById("placement-hint").innerHTML="";
+  document.querySelectorAll(".day-btn[data-day]").forEach(b=>b.classList.remove("active"));
+  setPlacementDelivery("any");
+  document.querySelectorAll(".class-card").forEach(card=>{
+    card.classList.remove("filtered-out","sched-conflict");
+    const badge=card.querySelector(".fit-badge");
+    if(badge) badge.remove();
+  });
+  // Restore original health-based sort order
+  const container=document.getElementById("results");
+  const cards=[...container.querySelectorAll(".class-card")];
+  const healthOrder={critical:0,warning:1,healthy:2};
+  cards.sort((a,b)=>healthOrder[a.dataset.health]-healthOrder[b.dataset.health]);
+  cards.forEach(card=>container.appendChild(card));
+}
+
+function updateSliderDisplay(){
+  sliderActive=true;
+  const gradeVal=parseInt(document.getElementById("p-grade").value);
+  const abilityIdx=parseInt(document.getElementById("p-ability").value);
+  const ability=sliderIdxToAbility(abilityIdx);
+  document.getElementById("p-grade-val").textContent=gradeLabel(gradeVal);
+  document.getElementById("p-ability-val").textContent=abilityToBook(ability);
+  runPlacementFilter();
+}
+
+function getSelectedDays() {
+  return [...document.querySelectorAll(".day-btn.active[data-day]")].map(b=>b.dataset.day);
+}
+
+function toggleDay(btn) {
+  btn.classList.toggle("active");
+  if (sliderActive) runPlacementFilter();
+}
+
+function currentCandidate() {
+  if (!placementActive) return null;
+  return {
+    grade:   parseInt(document.getElementById("p-grade").value),
+    ability: sliderIdxToAbility(parseInt(document.getElementById("p-ability").value)),
+  };
+}
+
+function runPlacementFilter(){
+  if(!placementActive) return;
+  const grade      = parseInt(document.getElementById("p-grade").value);
+  const ability    = sliderIdxToAbility(parseInt(document.getElementById("p-ability").value));
+  const availDays  = getSelectedDays(); // empty = no day filter applied
+  const daysActive = availDays.length > 0;
+
+  // Sort tiers (lower = better):
+  // 0 = available + perfect, 1 = available + good, 2 = available + possible
+  // 3 = conflict + perfect,  4 = conflict + good
+  // 5 = conflict + possible (hidden), 6 = no fit (hidden)
+  const fitTier = (fit, conflict) => {
+    if (!fit) return 6;
+    if (!conflict) return {perfect:0, good:1, possible:2}[fit];
+    return {perfect:3, good:4, possible:5}[fit];
+  };
+
+  const container = document.getElementById("results");
+  const cardFits  = [];
+
+  let counts = {0:0,1:0,2:0,3:0,4:0};
+
+  document.querySelectorAll(".class-card").forEach(card=>{
+    const idx      = parseInt(card.dataset.idx);
+    const cls      = allAnalysed[idx];
+    const fit      = scorePlacement(cls, grade, ability);
+    const clsDay      = (cls.day||"").trim().toLowerCase().slice(0,3);
+    const conflict    = daysActive && !!clsDay && !availDays.includes(clsDay);
+    const deliveryMismatch = placementDelivery !== "any" && !!cls.delivery && cls.delivery !== placementDelivery;
+    // Delivery mismatch = hide entirely (no conflict tier, just exclude)
+    const tier = deliveryMismatch ? 6 : fitTier(fit, conflict);
+
+    // Remove stale badges and conflict class
+    const existing = card.querySelector(".fit-badge");
+    if (existing) existing.remove();
+    card.classList.remove("sched-conflict");
+
+    cardFits.push({card, fit, tier, idx, cls, conflict});
+
+    const hidden = !fit || tier === 5 || tier === 6;
+
+    if (hidden) {
+      card.classList.add("filtered-out");
+      card.classList.remove("expanded");
+    } else {
+      card.classList.remove("filtered-out");
+
+      // Fit badge
+      const right  = card.querySelector(".card-header-right");
+      const badge  = document.createElement("span");
+      const labels = {perfect:"⭐ Perfect fit", good:"✓ Good fit", possible:"~ Possible fit"};
+      badge.className   = `fit-badge ${fit}`;
+      badge.textContent = labels[fit];
+      right.insertBefore(badge, right.firstChild);
+
+      if (conflict) {
+        card.classList.add("sched-conflict");
+        card.classList.remove("expanded");
+      } else if (fit==="perfect") {
+        card.classList.add("expanded");
+        if (card.dataset.chartBuilt==="false"){ card.dataset.chartBuilt="true"; buildChart(idx,cls,currentCandidate()); }
+      } else {
+        card.classList.remove("expanded");
+      }
+
+      if (tier <= 4) counts[tier]++;
+    }
+  });
+
+  // Re-order cards by tier, then by original health order within same tier
+  const healthOrder = {critical:0, warning:1, healthy:2};
+  cardFits.sort((a,b) => a.tier !== b.tier
+    ? a.tier - b.tier
+    : healthOrder[a.cls.health] - healthOrder[b.cls.health]);
+  cardFits.forEach(({card})=>container.appendChild(card));
+
+  // Summary hint
+  const hint  = document.getElementById("placement-hint");
+  const parts = [];
+  if (counts[0]) parts.push(`<span style="color:#f0c040">${counts[0]} perfect</span>`);
+  if (counts[1]) parts.push(`<span style="color:var(--green)">${counts[1]} good</span>`);
+  if (counts[2]) parts.push(`<span style="color:var(--amber)">${counts[2]} possible</span>`);
+  const conflictCount = counts[3] + counts[4];
+  if (conflictCount) parts.push(`<span style="color:var(--muted)">${conflictCount} scheduling conflict</span>`);
+
+  const total = Object.values(counts).reduce((a,b)=>a+b,0);
+  if (!total) {
+    hint.innerHTML = `<span style="color:var(--muted)">No suitable classes found.</span>`;
+  } else {
+    hint.innerHTML = `${gradeLabel(grade)}, ${abilityToBook(ability)}: ${parts.join(", ")}`;
+  }
+
+  // Update candidate dot on all visible charts
+  updateChartCandidate(currentCandidate());
+}
+
+document.addEventListener("DOMContentLoaded",function(){
+  document.getElementById("p-grade").addEventListener("input",updateSliderDisplay);
+  document.getElementById("p-ability").addEventListener("input",updateSliderDisplay);
+
+  // Apply config
+  const dropzone = document.getElementById("dropzone");
+  if (CONFIG.dataUrl) {
+    // Hide dropzone unless admin mode requested
+    if (!CONFIG.showDropzone) dropzone.style.display = "none";
+    // Show refresh button
+    document.getElementById("refresh-btn").classList.add("visible");
+    // Auto-fetch on load
+    fetchData();
+  } else {
+    // No URL configured — show dropzone as normal
+    dropzone.style.display = "";
+  }
+});
+</script>
+
+<div id="filter-overlay"><!-- built dynamically by buildFilterPanel() --></div>
+
+<div id="placement-overlay">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <h3 style="margin-bottom:0;">🔍 Place Student</h3>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <button onclick="toggleMinimize('placement-overlay')" style="background:transparent;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 4px;line-height:1;" title="Minimise">—</button>
+      <button onclick="togglePlacementPanel()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1;" title="Close">✕</button>
+    </div>
+  </div>
+  <div class="overlay-body">
+    <div class="placement-field">
+      <div class="p-label">
+        <span class="p-name">Grade</span>
+        <span class="p-val" id="p-grade-val">—</span>
+      </div>
+      <input type="range" id="p-grade" min="-1" max="12" step="1" value="7"/>
+    </div>
+    <div class="placement-field">
+      <div class="p-label">
+        <span class="p-name">Book Level</span>
+        <span class="p-val" id="p-ability-val">—</span>
+      </div>
+      <input type="range" id="p-ability" min="0" max="49" step="1" value="24"/>
+    </div>
+    <div class="placement-field" style="margin-bottom:12px;">
+      <div class="p-name" style="margin-bottom:6px;">Available Days</div>
+      <div class="day-grid">
+        <button class="day-btn" data-day="mon" onclick="toggleDay(this)">Mon</button>
+        <button class="day-btn" data-day="tue" onclick="toggleDay(this)">Tue</button>
+        <button class="day-btn" data-day="wed" onclick="toggleDay(this)">Wed</button>
+        <button class="day-btn" data-day="thu" onclick="toggleDay(this)">Thu</button>
+        <button class="day-btn" data-day="fri" onclick="toggleDay(this)">Fri</button>
+        <button class="day-btn" data-day="sat" onclick="toggleDay(this)">Sat</button>
+        <button class="day-btn" data-day="sun" onclick="toggleDay(this)">Sun</button>
+      </div>
+      <div class="sched-note">Leave all unselected to ignore scheduling</div>
+    </div>
+    <div class="placement-field" style="margin-bottom:12px;">
+      <div class="p-name" style="margin-bottom:6px;">Delivery</div>
+      <div style="display:flex;gap:6px;">
+        <button class="day-btn" id="p-delivery-any"      onclick="setPlacementDelivery('any')"       style="flex:1;" data-delivery="any">Any</button>
+        <button class="day-btn" id="p-delivery-online"   onclick="setPlacementDelivery('online')"    style="flex:1;" data-delivery="online">🌐 Online</button>
+        <button class="day-btn" id="p-delivery-inperson" onclick="setPlacementDelivery('in-person')" style="flex:1;" data-delivery="in-person">🏫 In-person</button>
+      </div>
+    </div>
+    <button id="clear-placement-btn" onclick="clearPlacementFilter()">✕ Clear filter</button>
+    <div class="placement-hint" id="placement-hint"></div>
+  </div>
+</div>
+
+</body>
+</html>
