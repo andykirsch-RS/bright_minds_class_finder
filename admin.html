@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Admin — Bright Minds</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@700;900&family=Inter:wght@400;500;600&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#05080f;--surface:#0d1117;--surface2:#111720;
+  --border:#1c2333;--text:#e6edf3;--muted:#768390;
+  --accent:#58a6ff;--green:#3fb950;--amber:#d29922;--red:#f85149;--purple:#bc8cff;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;}
+header{display:flex;align-items:center;justify-content:space-between;padding:18px 32px;border-bottom:1px solid var(--border);}
+.logo{font-family:'Fraunces',serif;font-size:20px;font-weight:900;}
+.nav-link{background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:5px;}
+.nav-link:hover{border-color:var(--accent);color:var(--accent);}
+main{max-width:900px;margin:0 auto;padding:28px 24px 80px;}
+.page-title{font-family:'Fraunces',serif;font-size:26px;font-weight:900;margin-bottom:4px;}
+.page-sub{color:var(--muted);font-size:13px;margin-bottom:28px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:20px;}
+.card-title{font-size:14px;font-weight:600;margin-bottom:18px;display:flex;align-items:center;gap:8px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.form-group{display:flex;flex-direction:column;gap:5px;}
+label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;}
+input,select{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:9px 12px;outline:none;}
+input:focus,select:focus{border-color:var(--accent);}
+.btn{padding:9px 18px;border-radius:8px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;}
+.btn:hover{opacity:.85;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-primary{background:var(--accent);color:#05080f;}
+.btn-danger{background:var(--red);color:#fff;}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted);}
+.btn-ghost:hover{border-color:var(--muted);color:var(--text);opacity:1;}
+.error{background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);border-radius:8px;color:#ffa198;font-size:12px;padding:8px 12px;margin-top:10px;display:none;}
+.success{background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.3);border-radius:8px;color:#56d364;font-size:12px;padding:8px 12px;margin-top:10px;display:none;}
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;}
+.b-admin{background:rgba(188,140,255,.15);color:#d2a8ff;}
+.b-instructor{background:rgba(88,166,255,.1);color:#79c0ff;}
+.b-inactive{background:rgba(248,81,73,.1);color:#ffa198;}
+.b-active{background:rgba(63,185,80,.12);color:#56d364;}
+.instructor-table{width:100%;border-collapse:collapse;font-size:13px;}
+.instructor-table th{padding:8px 12px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border);}
+.instructor-table td{padding:10px 12px;border-bottom:1px solid #0a0f18;vertical-align:middle;}
+.instructor-table tr:last-child td{border-bottom:none;}
+.instructor-table tr:hover td{background:rgba(255,255,255,.015);}
+.actions{display:flex;gap:6px;}
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:4px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.access-denied{text-align:center;padding:80px 24px;color:var(--muted);}
+.access-denied h2{font-family:'Fraunces',serif;font-size:24px;color:var(--text);margin-bottom:8px;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:100;display:none;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:420px;max-width:90vw;}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:20px;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Bright Minds</div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <span id="user-name" style="font-size:12px;color:var(--muted);"></span>
+    <a href="availability.html" class="nav-link">← Availability</a>
+    <a href="index.html" class="nav-link">ClassCluster</a>
+    <button onclick="signOut()" class="nav-link">Sign out</button>
+  </div>
+</header>
+
+<main id="main">
+  <div style="text-align:center;padding:60px;color:var(--muted);">Loading…</div>
+</main>
+
+<!-- Reset password modal -->
+<div class="modal-overlay" id="reset-modal">
+  <div class="modal">
+    <div class="modal-title">Reset password for <span id="reset-name"></span></div>
+    <div class="form-group">
+      <label>New password (min 6 characters)</label>
+      <input type="password" id="reset-password" placeholder="••••••••"/>
+    </div>
+    <div class="error" id="reset-error"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeResetModal()">Cancel</button>
+      <button class="btn btn-primary" id="reset-confirm-btn" onclick="confirmReset()">Set password</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp }   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, sendPasswordResetEmail }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+let currentUser = null;
+let allProfiles = [];
+let resetTargetUid = null;
+
+onAuthStateChanged(auth, async user => {
+  if (!user) { window.location.href = "login.html"; return; }
+  const profile = await getProfile(user.uid);
+  if (!profile || profile.role !== "admin") {
+    document.getElementById("main").innerHTML = `
+      <div class="access-denied">
+        <h2>Access denied</h2>
+        <p>This page is for administrators only.</p>
+        <a href="availability.html" style="color:var(--accent);font-size:13px;margin-top:16px;display:inline-block;">← Back to availability</a>
+      </div>`;
+    return;
+  }
+  currentUser = {...user, profile};
+  document.getElementById("user-name").textContent = profile.displayName;
+  await loadAll();
+  renderPage();
+});
+
+async function getProfile(uid) {
+  try {
+    const snap = await getDoc(doc(db, "instructors", uid));
+    return snap.exists() ? snap.data() : null;
+  } catch { return null; }
+}
+
+async function loadAll() {
+  const snap = await getDocs(collection(db, "instructors"));
+  allProfiles = snap.docs.map(d => ({uid: d.id, ...d.data()}));
+  allProfiles.sort((a,b) => (a.displayName||"").localeCompare(b.displayName||""));
+}
+
+function renderPage() {
+  const main = document.getElementById("main");
+  main.innerHTML = `
+    <div class="page-title">Admin</div>
+    <div class="page-sub">Manage instructor accounts and roles</div>
+
+    <!-- Create account -->
+    <div class="card">
+      <div class="card-title">➕ Create instructor account</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full name</label>
+          <input type="text" id="new-name" placeholder="e.g. Alice Schroeder"/>
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="new-email" placeholder="alice@example.com"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Temporary password</label>
+          <input type="password" id="new-password" placeholder="Min 6 characters"/>
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <select id="new-role">
+            <option value="instructor">Instructor</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row" style="grid-template-columns:1fr 1fr;">
+        <div class="form-group">
+          <label>Level preference</label>
+          <input type="text" id="new-level" placeholder="e.g. 2A–4B"/>
+        </div>
+        <div class="form-group">
+          <label>Max new classes</label>
+          <input type="number" id="new-maxnew" placeholder="Leave blank if unknown" min="0"/>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label>Notes</label>
+        <input type="text" id="new-notes" placeholder="Any scheduling notes…"/>
+      </div>
+      <button class="btn btn-primary" id="create-btn" onclick="createAccount()">Create account</button>
+      <div class="error" id="create-error"></div>
+      <div class="success" id="create-success"></div>
+    </div>
+
+    <!-- Instructor list -->
+    <div class="card">
+      <div class="card-title">👥 All instructors (${allProfiles.length})</div>
+      <table class="instructor-table">
+        <thead><tr>
+          <th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Max new</th><th>Actions</th>
+        </tr></thead>
+        <tbody>
+        ${allProfiles.map(p => `
+          <tr>
+            <td style="font-weight:500;">${p.displayName||'—'}</td>
+            <td style="color:var(--muted);">${p.email||'—'}</td>
+            <td><span class="badge ${p.role==='admin'?'b-admin':'b-instructor'}">${p.role||'instructor'}</span></td>
+            <td><span class="badge ${p.active===false?'b-inactive':'b-active'}">${p.active===false?'Inactive':'Active'}</span></td>
+            <td style="color:var(--muted);">${p.maxNew!=null?p.maxNew:'—'}</td>
+            <td>
+              <div class="actions">
+                <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="openResetModal('${p.uid}','${(p.displayName||'').replace(/'/g,"\\'")}','${p.email||''}')">Reset pw</button>
+                <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="toggleRole('${p.uid}','${p.role||'instructor'}')">${p.role==='admin'?'→ Instructor':'→ Admin'}</button>
+                <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="toggleActive('${p.uid}',${p.active!==false})">${p.active===false?'Reactivate':'Deactivate'}</button>
+              </div>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+window.createAccount = async function() {
+  const name     = document.getElementById("new-name").value.trim();
+  const email    = document.getElementById("new-email").value.trim();
+  const password = document.getElementById("new-password").value;
+  const role     = document.getElementById("new-role").value;
+  const level    = document.getElementById("new-level").value.trim();
+  const maxNew   = document.getElementById("new-maxnew").value;
+  const notes    = document.getElementById("new-notes").value.trim();
+  const errEl    = document.getElementById("create-error");
+  const sucEl    = document.getElementById("create-success");
+  errEl.style.display = "none"; sucEl.style.display = "none";
+  if (!name || !email || !password) { showMsg(errEl, "Name, email, and password are required."); return; }
+  if (password.length < 6) { showMsg(errEl, "Password must be at least 6 characters."); return; }
+  const btn = document.getElementById("create-btn");
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Creating…';
+  try {
+    // Create auth account
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    // Save profile to Firestore
+    await setDoc(doc(db, "instructors", cred.user.uid), {
+      displayName: name,
+      email:       email,
+      role:        role,
+      active:      true,
+      levelPref:   level || "",
+      maxNew:      maxNew !== "" ? parseInt(maxNew) : null,
+      notes:       notes || "",
+      createdAt:   serverTimestamp(),
+      availability: {},
+    });
+    showMsg(sucEl, `Account created for ${name}. They can sign in at login.html and set their own password via "Forgot password".`);
+    // Clear form
+    ["new-name","new-email","new-password","new-level","new-maxnew","new-notes"].forEach(id => document.getElementById(id).value = "");
+    await loadAll();
+    renderPage();
+  } catch(e) {
+    showMsg(errEl, friendlyError(e.code));
+  } finally {
+    btn.disabled = false; btn.textContent = "Create account";
+  }
+};
+
+window.toggleRole = async function(uid, currentRole) {
+  const newRole = currentRole === "admin" ? "instructor" : "admin";
+  if (!confirm(`Change this instructor's role to ${newRole}?`)) return;
+  await updateDoc(doc(db, "instructors", uid), {role: newRole});
+  await loadAll(); renderPage();
+};
+
+window.toggleActive = async function(uid, currentlyActive) {
+  const msg = currentlyActive ? "Deactivate this instructor?" : "Reactivate this instructor?";
+  if (!confirm(msg)) return;
+  await updateDoc(doc(db, "instructors", uid), {active: !currentlyActive});
+  await loadAll(); renderPage();
+};
+
+window.openResetModal = function(uid, name, email) {
+  resetTargetUid = {uid, email};
+  document.getElementById("reset-name").textContent = name;
+  document.getElementById("reset-password").value = "";
+  document.getElementById("reset-error").style.display = "none";
+  document.getElementById("reset-modal").style.display = "flex";
+};
+
+window.closeResetModal = function() {
+  document.getElementById("reset-modal").style.display = "none";
+  resetTargetUid = null;
+};
+
+window.confirmReset = async function() {
+  if (!resetTargetUid) return;
+  const btn = document.getElementById("reset-confirm-btn");
+  const errEl = document.getElementById("reset-error");
+  errEl.style.display = "none";
+  // Send password reset email — the Firebase Admin SDK would allow setting directly,
+  // but from the client we send a reset email to the instructor's address.
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Sending…';
+  try {
+    await sendPasswordResetEmail(auth, resetTargetUid.email);
+    closeResetModal();
+    alert(`Password reset email sent to ${resetTargetUid.email}`);
+  } catch(e) {
+    showMsg(errEl, friendlyError(e.code));
+  } finally {
+    btn.disabled = false; btn.textContent = "Set password";
+  }
+};
+
+window.signOut = async function() {
+  await fbSignOut(auth);
+  window.location.href = "login.html";
+};
+
+function showMsg(el, msg) { el.textContent = msg; el.style.display = "block"; }
+
+function friendlyError(code) {
+  switch(code) {
+    case "auth/email-already-in-use": return "An account with this email already exists.";
+    case "auth/invalid-email":        return "Invalid email address.";
+    case "auth/weak-password":        return "Password must be at least 6 characters.";
+    default: return "Something went wrong (" + code + "). Please try again.";
+  }
+}
+</script>
+</body>
+</html>

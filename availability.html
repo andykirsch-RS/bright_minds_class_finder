@@ -4,844 +4,577 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Instructor Availability — Bright Minds</title>
-<script>
-// ════════════════════════════════════════════════════════
-// CONFIGURATION — must match index.html
-// ════════════════════════════════════════════════════════
-const CONFIG = {
-  dataUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQc--XNIN9X3e1m2hAchdpJNtMvVF77PzDDSU-jLlgTk9FjO5ZwJNNTnatyjaMbDTUKsoe11VwHjy6R/pub?gid=320321807&single=true&output=csv",
-};
-// ════════════════════════════════════════════════════════
-</script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@700;900&family=Inter:wght@400;500;600&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --bg:#05080f; --surface:#0d1117; --surface2:#111720;
-  --border:#1c2333; --text:#e6edf3; --muted:#768390;
-  --accent:#58a6ff; --green:#3fb950; --amber:#d29922;
-  --red:#f85149; --gold:#f0a500; --purple:#bc8cff;
+  --bg:#05080f;--surface:#0d1117;--surface2:#111720;
+  --border:#1c2333;--text:#e6edf3;--muted:#768390;
+  --accent:#58a6ff;--green:#3fb950;--amber:#d29922;--red:#f85149;--purple:#bc8cff;
 }
 body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;min-height:100vh;}
-a{color:inherit;text-decoration:none;}
-
-header{display:flex;align-items:center;justify-content:space-between;padding:20px 40px;border-bottom:1px solid var(--border);}
-header h1{font-family:'Fraunces',serif;font-size:24px;font-weight:900;color:#e6edf3;}
-header p{color:var(--muted);font-size:12px;margin-top:3px;}
-.nav-link{background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 18px;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 32px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px;}
+.logo{font-family:'Fraunces',serif;font-size:20px;font-weight:900;}
+.nav-link{background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:all .15s;}
 .nav-link:hover{border-color:var(--accent);color:var(--accent);}
-
-main{max-width:1200px;margin:0 auto;padding:28px 24px 80px;}
-
-.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;}
-.tab{padding:10px 22px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit;}
+main{max-width:1100px;margin:0 auto;padding:24px 20px 80px;}
+.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto;}
+.tab{padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit;transition:color .15s;}
 .tab:hover{color:var(--text);}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
-
-.spinner{text-align:center;color:var(--muted);font-size:13px;padding:40px;}
-.dot-spin{display:inline-block;animation:spin 1s linear infinite;}
-@keyframes spin{to{transform:rotate(360deg)}}
-.error-box{background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.3);border-radius:10px;padding:12px 18px;color:#ffa198;font-size:13px;margin-bottom:20px;display:none;}
-
-.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;}
-.metric{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
-.metric-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;}
-.metric-value{font-size:26px;font-weight:700;font-family:'Fraunces',serif;}
-.metric-value.warn{color:var(--amber);}
-.metric-value.crit{color:var(--red);}
-.metric-value.ok{color:var(--green);}
-
-.inst-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px;}
+.section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:10px;}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;}
+.metric-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+.metric-value{font-size:24px;font-weight:700;font-family:'Fraunces',serif;}
+.ok{color:var(--green);}.warn{color:var(--amber);}.crit{color:var(--red);}.purple{color:var(--purple);}
+.inst-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;}
 .inst-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:border-color .15s;}
 .inst-card:hover{border-color:var(--accent);}
 .inst-card.inactive{opacity:.4;}
 .inst-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;margin-bottom:8px;}
-.inst-name{font-weight:600;font-size:14px;margin-bottom:2px;}
+.inst-name{font-weight:600;font-size:14px;margin-bottom:3px;}
 .inst-sub{font-size:11px;color:var(--muted);}
-.badge{display:inline-block;padding:2px 7px;border-radius:8px;font-size:10px;font-weight:600;margin:1px;}
+.badge{display:inline-block;padding:2px 7px;border-radius:6px;font-size:10px;font-weight:600;margin:1px;}
 .b-green{background:rgba(63,185,80,.15);color:#3fb950;}
 .b-red{background:rgba(248,81,73,.12);color:#ffa198;}
 .b-amber{background:rgba(210,153,34,.12);color:#e3b341;}
 .b-purple{background:rgba(188,140,255,.15);color:#d2a8ff;}
 .b-blue{background:rgba(88,166,255,.1);color:#79c0ff;}
 .b-gray{background:rgba(118,131,144,.15);color:#adbac7;}
-.b-teal{background:rgba(63,185,80,.1);color:#56d364;}
-
 .back-btn{background:transparent;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:0;margin-bottom:16px;font-family:inherit;display:flex;align-items:center;gap:5px;}
 .back-btn:hover{color:var(--text);}
-
 .profile-header{display:flex;align-items:center;gap:16px;margin-bottom:20px;padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:14px;}
-.profile-avatar{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0;}
-.profile-name{font-family:'Fraunces',serif;font-size:22px;font-weight:900;}
-.profile-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
-
+.profile-avatar{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0;}
+.profile-name{font-family:'Fraunces',serif;font-size:20px;font-weight:900;}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-@media(max-width:700px){.two-col{grid-template-columns:1fr;}}
-.section-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;}
-.section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:10px;}
+@media(max-width:700px){.two-col{grid-template-columns:1fr;}.metrics{grid-template-columns:1fr 1fr;}}
 .note-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--muted);line-height:1.6;}
-
-.class-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;font-size:12px;margin:2px;background:var(--surface2);border:1px solid var(--border);}
-.class-pill.lead{border-color:rgba(88,166,255,.3);background:rgba(88,166,255,.06);}
-.class-pill.shadow{border-color:rgba(188,140,255,.3);background:rgba(188,140,255,.06);}
-
-.avail-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
-.avail-controls select,.avail-controls input{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:7px 12px;outline:none;}
-.avail-controls select:focus,.avail-controls input:focus{border-color:var(--accent);}
-
-.time-grid{overflow-x:auto;}
-.time-table{width:100%;border-collapse:collapse;font-size:12px;}
-.time-table th{padding:6px 10px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
-.time-table td{padding:4px 8px;border-bottom:1px solid #0a0f18;vertical-align:middle;}
-.time-table tr:hover td{background:rgba(255,255,255,.02);}
-.time-label{color:var(--muted);white-space:nowrap;font-family:'Inter',monospace;font-size:11px;}
-.avail-pip{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;margin:1px;}
+/* Availability grid */
+.avail-grid{display:grid;grid-template-columns:80px repeat(6,1fr);gap:2px;font-size:11px;margin-top:8px;}
+.ag-header{font-size:11px;font-weight:600;text-align:center;color:var(--muted);padding:4px;}
+.ag-label{font-size:10px;color:var(--muted);display:flex;align-items:center;padding:1px 3px;white-space:nowrap;}
+.ag-cell{border-radius:4px;padding:3px 2px;text-align:center;cursor:pointer;transition:all .1s;border:1px solid transparent;font-size:9px;font-weight:700;user-select:none;min-height:18px;display:flex;align-items:center;justify-content:center;}
+.ag-cell.none{background:var(--surface2);color:#333a42;}
+.ag-cell.none:hover{border-color:var(--border);color:var(--muted);}
+.ag-cell.ip{background:rgba(63,185,80,.22);color:#56d364;border-color:rgba(63,185,80,.35);}
+.ag-cell.online{background:rgba(88,166,255,.22);color:#79c0ff;border-color:rgba(88,166,255,.35);}
+.ag-cell.both{background:rgba(188,140,255,.22);color:#d2a8ff;border-color:rgba(188,140,255,.35);}
+.ag-cell.readonly{cursor:default;}
+.avail-legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--muted);}
+.legend-dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle;}
+.btn{padding:9px 18px;border-radius:8px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;}
+.btn:hover{opacity:.85;}.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-primary{background:var(--accent);color:#05080f;}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted);}
+.btn-ghost:hover{border-color:var(--muted);color:var(--text);opacity:1;}
+.save-status{font-size:12px;color:var(--muted);}
+.save-status.saved{color:var(--green);}
+.rollup-table{width:100%;border-collapse:collapse;font-size:12px;}
+.rollup-table th{padding:7px 10px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-bottom:1px solid var(--border);}
+.rollup-table td{padding:6px 10px;border-bottom:1px solid #0a0f18;vertical-align:middle;}
+.rollup-table tr:hover td{background:rgba(255,255,255,.015);}
+.pip{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;margin:1px;}
 .pip-ip{background:rgba(63,185,80,.15);color:#56d364;}
 .pip-online{background:rgba(88,166,255,.1);color:#79c0ff;}
-.pip-class{background:rgba(210,153,34,.12);color:#e3b341;}
+.pip-both{background:rgba(188,140,255,.12);color:#d2a8ff;}
 .pip-shadow{background:rgba(188,140,255,.12);color:#d2a8ff;}
-
+.pip-class{background:rgba(210,153,34,.12);color:#e3b341;}
 .conflict-card{background:var(--surface);border:1px solid rgba(248,81,73,.3);border-radius:12px;padding:14px 18px;margin-bottom:10px;}
 .conflict-title{font-weight:600;color:#ffa198;margin-bottom:4px;font-size:14px;}
 .conflict-detail{font-size:13px;color:var(--muted);line-height:1.6;}
 .conflict-tag{background:rgba(248,81,73,.12);color:#ffa198;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600;display:inline-block;margin:2px;}
-
 .shadow-tracker-card{background:var(--surface);border:1px solid rgba(188,140,255,.2);border-radius:12px;padding:16px;margin-bottom:10px;}
-.shadow-tracker-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-.shadow-tracker-name{font-weight:700;font-size:14px;color:#d2a8ff;}
-.shadow-tracker-class{font-size:12px;color:var(--muted);margin-top:2px;}
-.shadow-counter{display:flex;align-items:center;gap:8px;}
-.sc-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;font-family:inherit;transition:border-color .15s;}
+.sc-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;font-family:inherit;}
 .sc-btn:hover{border-color:var(--purple);}
 .sc-val{font-family:'Fraunces',serif;font-size:22px;font-weight:900;color:#d2a8ff;min-width:32px;text-align:center;}
-.sc-label{font-size:11px;color:var(--muted);}
 .shadow-notes{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:8px 12px;resize:none;width:100%;outline:none;margin-top:10px;line-height:1.6;}
 .shadow-notes:focus{border-color:var(--purple);}
-.cleared-label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:10px;cursor:pointer;user-select:none;}
+.cleared-label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:10px;cursor:pointer;}
 .cleared-label input{accent-color:var(--purple);cursor:pointer;}
 .cleared-label.is-cleared{color:#d2a8ff;font-weight:600;}
-
-.filter-input{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:7px 12px;outline:none;min-width:180px;}
-.filter-input:focus{border-color:var(--accent);}
-
-.empty{color:var(--muted);font-size:13px;padding:24px;text-align:center;}
-.refresh-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:7px;font-family:inherit;font-size:12px;cursor:pointer;}
-.refresh-btn:hover{color:var(--text);border-color:var(--muted);}
-.refresh-btn.spinning{animation:spin .8s linear infinite;pointer-events:none;}
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
+.filter-row select,.filter-row input{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:12px;padding:7px 10px;outline:none;}
+.filter-row select:focus,.filter-row input:focus{border-color:var(--accent);}
+.empty{color:var(--muted);font-size:13px;padding:28px;text-align:center;}
+.spinner-wrap{text-align:center;padding:60px;color:var(--muted);}
+.dot-spin{display:inline-block;animation:spin .9s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-
 <header>
-  <div>
-    <h1>Instructors</h1>
-    <p>Availability · scheduling · shadow tracking</p>
-  </div>
-  <div style="display:flex;gap:8px;align-items:center;">
-    <span id="last-updated" style="font-size:12px;color:var(--muted);"></span>
-    <button class="refresh-btn" id="refresh-btn" onclick="fetchData()" title="Refresh">↻</button>
-    <a href="index.html" class="nav-link">← ClassCluster</a>
+  <div class="logo">Bright Minds — Availability</div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <span id="user-label" style="font-size:12px;color:var(--muted);"></span>
+    <a href="index.html" class="nav-link">ClassCluster</a>
+    <a id="admin-link" href="admin.html" class="nav-link" style="display:none;">Admin</a>
+    <button onclick="doSignOut()" class="nav-link">Sign out</button>
   </div>
 </header>
-
 <main>
-  <div id="error-box" class="error-box"></div>
-  <div id="spinner" class="spinner" style="display:none;"><span class="dot-spin">⟳</span> &nbsp;Loading…</div>
-
+  <div class="spinner-wrap" id="spinner"><span class="dot-spin">⟳</span>&nbsp;Loading…</div>
   <div id="app" style="display:none;">
     <div class="tabs">
-      <button class="tab active" onclick="showTab('instructors',this)">Instructors</button>
-      <button class="tab" onclick="showTab('availability',this)">Availability rollup</button>
+      <button class="tab active" onclick="showTab('my-availability',this)">My availability</button>
+      <button class="tab" onclick="showTab('instructors',this)">All instructors</button>
+      <button class="tab" onclick="showTab('rollup',this)">Rollup</button>
       <button class="tab" onclick="showTab('conflicts',this)">Conflicts</button>
       <button class="tab" onclick="showTab('shadows',this)">Shadow tracker</button>
     </div>
-    <div id="tab-instructors"></div>
-    <div id="tab-availability" style="display:none;"></div>
+    <div id="tab-my-availability"></div>
+    <div id="tab-instructors" style="display:none;"></div>
+    <div id="tab-rollup" style="display:none;"></div>
     <div id="tab-conflicts" style="display:none;"></div>
     <div id="tab-shadows" style="display:none;"></div>
   </div>
 </main>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut as fbSignOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, doc, getDoc, getDocs, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { firebaseConfig, CLASS_DATA_URL } from "./firebase-config.js";
 
-<script>
-// ════════════════════════════════════════════════════════
-// INSTRUCTOR PROFILE DATA (from ODS — replace with API)
-// ════════════════════════════════════════════════════════
-const INSTRUCTOR_PROFILES = {
-  "Alice":    {levelPref:"K-2A", maxNew:3, note:"Preference for opening classes Saturday / Tuesday", active:true},
-  "Alyna":    {levelPref:"", maxNew:null, note:"", active:true},
-  "Andy":     {levelPref:"3C and up", maxNew:2, note:"Can remove breaks on Saturday and teach instead of assessing.", active:true},
-  "Angela":   {levelPref:"0-4", maxNew:0, note:"Maxed out. No extra classes. Can substitute occasionally.", active:true},
-  "Ben":      {levelPref:"", maxNew:null, note:"", active:true},
-  "Caleb":    {levelPref:"1A-4", maxNew:null, note:"Would like to work in-person all day or online — no mixes.", active:true},
-  "Cameron":  {levelPref:"", maxNew:null, note:"", active:true},
-  "Chantel":  {levelPref:"K levels / early 1", maxNew:null, note:"May change semester to semester.", active:true},
-  "Daisy":    {levelPref:"", maxNew:null, note:"", active:true},
-  "Danielle": {levelPref:"level 4A+", maxNew:3, note:"Currently abroad — Saturday morning only until back in Calgary.", active:true},
-  "Diya":     {levelPref:"", maxNew:null, note:"", active:true},
-  "Doina":    {levelPref:"", maxNew:0, note:"", active:true},
-  "Elena B":  {levelPref:"4A-D2", maxNew:10, note:"", active:true},
-  "Frank":    {levelPref:"", maxNew:null, note:"", active:true},
-  "Gurinder": {levelPref:"L-3 to L-7", maxNew:1, note:"Available Mon–Fri 5–7:30 PM. Would like to give away M-10 Wed class.", active:true},
-  "Jasmine":  {levelPref:"KS-2D", maxNew:7, note:"Prefer back-to-back classes. Can teach morning classes.", active:true},
-  "Jibola":   {levelPref:"", maxNew:null, note:"", active:true},
-  "Juliette": {levelPref:"", maxNew:null, note:"", active:true},
-  "Kian":     {levelPref:"Any", maxNew:6, note:"Prefer in person, okay with both.", active:true},
-  "Lekha":    {levelPref:"2A-4B", maxNew:null, note:"", active:true},
-  "Liam":     {levelPref:"", maxNew:null, note:"", active:true},
-  "Marina":   {levelPref:"", maxNew:null, note:"TUESDAY IS NOT A GOOD DAY (per March 2/26 WhatsApp).", active:true},
-  "Myrna":    {levelPref:"", maxNew:0, note:"No longer with Bright Minds as of mid January 2026.", active:false},
-  "Naz":      {levelPref:"All levels", maxNew:15, note:"Flexible — prefer multiple classes in one day. Happy to sub online.", active:true},
-  "Nicha":    {levelPref:"4A-M20", maxNew:3, note:"", active:true},
-  "Penekeh":  {levelPref:"Any", maxNew:2, note:"", active:true},
-  "Pria":     {levelPref:"Ages 6+", maxNew:5, note:"May change semester to semester.", active:true},
-  "Priyal":   {levelPref:"3D-8", maxNew:3, note:"Prefer Friday evenings and Saturday mornings. Check in before assigning.", active:true},
-  "Rita":     {levelPref:"", maxNew:null, note:"", active:true},
-  "Ryan":     {levelPref:"Ages 5-13", maxNew:0, note:"Not taking new classes.", active:true},
-  "Saika":    {levelPref:"2C and up to Math 30", maxNew:3, note:"Available Tuesday, Wednesday, and Saturday morning.", active:true},
-  "Salina":   {levelPref:"", maxNew:null, note:"", active:true},
-  "Sameem":   {levelPref:"", maxNew:0, note:"No longer with Bright Minds as of mid January 2026.", active:false},
-  "Shweta":   {levelPref:"", maxNew:0, note:"No longer with Bright Minds as of mid January 2026.", active:false},
-  "Sumaira":  {levelPref:"", maxNew:null, note:"", active:true},
-  "Tara":     {levelPref:"1A-3A", maxNew:0, note:"Only wants the 2 current classes for now (per March 2/26 WhatsApp).", active:true},
-  "Trisha":   {levelPref:"Ages 8+", maxNew:0, note:"Not taking new classes.", active:true},
-};
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
 
-const AVATAR_COLORS = [
-  {bg:"rgba(88,166,255,.15)",txt:"#79c0ff"},
-  {bg:"rgba(63,185,80,.15)",txt:"#56d364"},
-  {bg:"rgba(188,140,255,.15)",txt:"#d2a8ff"},
-  {bg:"rgba(210,153,34,.15)",txt:"#e3b341"},
-  {bg:"rgba(248,81,73,.12)",txt:"#ffa198"},
-  {bg:"rgba(240,165,0,.12)",txt:"#f0c040"},
+const DAYS  = ['Mon','Tue','Wed','Thu','Fri','Sat'];
+const SLOTS = [];
+for (let h=8;h<=20;h++) for (let m=0;m<60;m+=15) {
+  if (h===8&&m<45) continue; if (h===20&&m>15) continue;
+  SLOTS.push(`${h}:${m.toString().padStart(2,'0')}`);
+}
+const STATES = ['none','ip','online','both'];
+const LABELS = {none:'—',ip:'IP',online:'Web',both:'Both'};
+const TITLES = {none:'Unavailable',ip:'In-person only',online:'Online only',both:'Both IP & online'};
+
+let currentUser=null, currentProfile=null, allProfiles=[], allClasses=[];
+let draftAvail={}, activeTab='my-availability', selectedInst=null, unsaved=false;
+
+const AVG=[
+  {bg:"rgba(88,166,255,.15)",txt:"#79c0ff"},{bg:"rgba(63,185,80,.15)",txt:"#56d364"},
+  {bg:"rgba(188,140,255,.15)",txt:"#d2a8ff"},{bg:"rgba(210,153,34,.15)",txt:"#e3b341"},
+  {bg:"rgba(248,81,73,.12)",txt:"#ffa198"},{bg:"rgba(240,165,0,.12)",txt:"#f0c040"},
   {bg:"rgba(118,131,144,.15)",txt:"#adbac7"},
 ];
-function avatarColor(name) { return AVATAR_COLORS[name.charCodeAt(0)%AVATAR_COLORS.length]; }
-function initials(name) { return name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(); }
+const ac=n=>AVG[(n||" ").charCodeAt(0)%AVG.length];
+const ini=n=>(n||"?").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+const clone=o=>JSON.parse(JSON.stringify(o||{}));
 
-// ════════════════════════════════════════════════════════
-// STATE
-// ════════════════════════════════════════════════════════
-let allClasses = [];
-let activeTab = 'instructors';
-let selectedInstructor = null;
-
-// ════════════════════════════════════════════════════════
-// DATA FETCH
-// ════════════════════════════════════════════════════════
-function showError(msg) {
-  const el = document.getElementById("error-box");
-  if (msg) { el.textContent = "⚠ " + msg; el.style.display = "block"; }
-  else el.style.display = "none";
-}
-function showSpinner(on) {
-  document.getElementById("spinner").style.display = on ? "block" : "none";
-}
-
-function fetchData() {
-  if (!CONFIG.dataUrl) { showError("No dataUrl set in CONFIG."); return; }
-  const btn = document.getElementById("refresh-btn");
-  btn.classList.add("spinning");
-  showError(null); showSpinner(true);
-  document.getElementById("app").style.display = "none";
-  const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(CONFIG.dataUrl);
-  fetch(proxyUrl, {cache:"no-cache"})
-    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
-    .then(text => {
-      allClasses = parseCSV(text);
-      document.getElementById("app").style.display = "block";
-      renderAll();
-      const now = new Date();
-      document.getElementById("last-updated").textContent =
-        "Updated " + now.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"});
-    })
-    .catch(err => showError("Could not fetch data: " + err.message))
-    .finally(() => { btn.classList.remove("spinning"); showSpinner(false); });
-}
-
-function parseCSV(text) {
-  const lines = text.trim().split(/\r?\n/);
-  const hdr = lines[0].split(",").map(h=>h.trim().toLowerCase());
-  const ci = hdr.indexOf("classid")>=0 ? hdr.indexOf("classid") : hdr.indexOf("class");
-  const di = hdr.indexOf("day"), ti = hdr.indexOf("time");
-  const ii = hdr.indexOf("instructor");
-  const shi = hdr.indexOf("shadows");
-  const deli = hdr.indexOf("delivery");
-  const oi = hdr.indexOf("comment");
-  if (ci < 0) return [];
-  const map = {}, meta = {};
-  for (let i = 1; i < lines.length; i++) {
-    const c = lines[i].split(",").map(v=>v.trim());
-    if (c.length < 2) continue;
-    const cn = c[ci]; if (!cn) continue;
-    if (!map[cn]) {
-      map[cn] = [];
-      meta[cn] = {
-        classId: cn,
-        day:       di>=0  ? c[di]  : "",
-        time:      ti>=0  ? c[ti]  : "",
-        instructor:ii>=0  ? c[ii]  : "",
-        shadows:   shi>=0 ? c[shi].split(";").map(s=>s.trim()).filter(Boolean) : [],
-        delivery:  deli>=0? (c[deli].toLowerCase().includes("online")?"online":"in-person") : "",
-        comment:   oi>=0  ? c[oi]  : "",
-      };
-    }
-    const gi = hdr.indexOf("grade"), bi = hdr.indexOf("ability")>=0?hdr.indexOf("ability"):hdr.indexOf("level");
-    const ni = hdr.indexOf("name");
-    if (ni>=0 && gi>=0 && bi>=0 && c[ni]) {
-      map[cn].push({name:c[ni], grade:parseFloat(c[gi])||0, ability:parseFloat(c[bi])||0});
-    }
-  }
-  return Object.entries(map).map(([cn,students])=>({...meta[cn], className:cn, students}));
-}
-
-// ════════════════════════════════════════════════════════
-// HELPERS
-// ════════════════════════════════════════════════════════
-
-// Normalize a name from the CSV to match INSTRUCTOR_PROFILES keys (first name only).
-// Strategy: if the full name starts with a known profile key (case-insensitive), use that key.
-// Otherwise fall back to the first word of the name.
-const _profileKeysByFirstName = {};
-Object.keys(INSTRUCTOR_PROFILES).forEach(k => {
-  _profileKeysByFirstName[k.toLowerCase()] = k;
-});
-
-function normalizeName(rawName) {
-  const trimmed = (rawName || "").trim();
-  // Direct match first
-  if (INSTRUCTOR_PROFILES[trimmed]) return trimmed;
-  const lower = trimmed.toLowerCase();
-  const firstWord = lower.split(" ")[0];
-  // Check if trimmed starts with a known profile key e.g. "Alice Schroeder" → "Alice"
-  for (const [profileKey, key] of Object.entries(_profileKeysByFirstName)) {
-    if (lower === profileKey || lower.startsWith(profileKey + " ")) return key;
-  }
-  // Check if first word of raw name matches first word of any profile key
-  // e.g. "Elena" matches "Elena B"
-  for (const [profileKey, key] of Object.entries(_profileKeysByFirstName)) {
-    if (profileKey.split(" ")[0] === firstWord) return key;
-  }
-  // Fall back to first word
-  return trimmed.split(" ")[0];
-}
-
-function allInstructorNames() {
-  const names = new Set();
-  allClasses.forEach(c => {
-    if (c.instructor) names.add(normalizeName(c.instructor));
-    (c.shadows||[]).forEach(s => names.add(normalizeName(s)));
-  });
-  // Also include profiles not yet in CSV
-  Object.keys(INSTRUCTOR_PROFILES).forEach(n => names.add(n));
-  return [...names].sort();
-}
-
-function classesForInstructor(name) {
-  const lead   = allClasses.filter(c => normalizeName(c.instructor||"") === name);
-  const shadow = allClasses.filter(c => (c.shadows||[]).map(s=>normalizeName(s)).includes(name));
-  return {lead, shadow};
-}
-
-function shadowKey(classId, name) {
-  return `bm_shadow_${classId}_${name.replace(/\s+/g,'_')}`;
-}
-function getShadowData(classId, name) {
-  try { return JSON.parse(localStorage.getItem(shadowKey(classId,name))) || {sessions:0,notes:'',cleared:false}; }
-  catch { return {sessions:0,notes:'',cleared:false}; }
-}
-function saveShadowData(classId, name, data) {
-  try { localStorage.setItem(shadowKey(classId,name), JSON.stringify(data)); } catch {}
-}
-
-// ════════════════════════════════════════════════════════
-// TAB ROUTING
-// ════════════════════════════════════════════════════════
-function showTab(tab, btn) {
-  activeTab = tab;
-  selectedInstructor = null;
-  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-  if (btn) btn.classList.add("active");
-  ["instructors","availability","conflicts","shadows"].forEach(t => {
-    document.getElementById("tab-"+t).style.display = t===tab ? "" : "none";
-  });
-  renderTab(tab);
-}
-
-function renderAll() {
-  renderTab('instructors');
-  // Pre-render other tabs lazily on first switch
-}
-
-function renderTab(tab) {
-  if (tab === 'instructors') renderInstructors();
-  else if (tab === 'availability') renderAvailability();
-  else if (tab === 'conflicts') renderConflicts();
-  else if (tab === 'shadows') renderShadows();
-}
-
-// ════════════════════════════════════════════════════════
-// TAB 1 — INSTRUCTORS
-// ════════════════════════════════════════════════════════
-function renderInstructors() {
-  const el = document.getElementById("tab-instructors");
-  if (selectedInstructor) { renderProfile(el, selectedInstructor); return; }
-
-  const names = allInstructorNames();
-  const active = names.filter(n=>(INSTRUCTOR_PROFILES[n]?.active ?? true));
-  const inactive = names.filter(n=>INSTRUCTOR_PROFILES[n]?.active===false);
-  const openToNew = active.filter(n=>{const p=INSTRUCTOR_PROFILES[n]; return p?.maxNew && p.maxNew>0;});
-  const maxed = active.filter(n=>INSTRUCTOR_PROFILES[n]?.maxNew===0);
-  const totalShadowRelationships = allClasses.reduce((s,c)=>s+(c.shadows||[]).length,0);
-
-  el.innerHTML = `
-    <div class="metrics">
-      <div class="metric"><div class="metric-label">Active instructors</div><div class="metric-value ok">${active.length}</div></div>
-      <div class="metric"><div class="metric-label">Open to new classes</div><div class="metric-value ok">${openToNew.length}</div></div>
-      <div class="metric"><div class="metric-label">Maxed out</div><div class="metric-value warn">${maxed.length}</div></div>
-      <div class="metric"><div class="metric-label">Shadow assignments</div><div class="metric-value" style="color:var(--purple)">${totalShadowRelationships}</div></div>
-    </div>
-
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-      <input class="filter-input" id="inst-search" placeholder="Search instructors…" oninput="filterInstGrid()" style="min-width:200px;"/>
-      <select id="inst-filter" onchange="filterInstGrid()" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:7px 12px;outline:none;">
-        <option value="all">All instructors</option>
-        <option value="active">Active only</option>
-        <option value="open">Open to new classes</option>
-        <option value="maxed">Maxed out</option>
-        <option value="inactive">Inactive</option>
-        <option value="shadows">Has shadow role</option>
-      </select>
-    </div>
-
-    <div class="inst-grid" id="inst-grid">
-      ${names.map(name => {
-        const c = avatarColor(name);
-        const p = INSTRUCTOR_PROFILES[name];
-        const active = p?.active !== false;
-        const {lead, shadow} = classesForInstructor(name);
-        const totalShadows = shadow.length;
-        return `<div class="inst-card${active?'':' inactive'}" onclick="openProfile('${name.replace(/'/g,"\\'")}')">
-          <div class="inst-avatar" style="background:${c.bg};color:${c.txt}">${initials(name)}</div>
-          <div class="inst-name">${name}</div>
-          <div class="inst-sub" style="margin-bottom:6px;">${lead.length} class${lead.length!==1?'es':''}${totalShadows?` · <span style="color:#d2a8ff">${totalShadows} shadowing</span>`:''}${p?.note?` · <span title="${p.note}">📌</span>`:''}</div>
-          <div>
-            ${!active?'<span class="badge b-red">inactive</span>':''}
-            ${active&&p?.maxNew===0?'<span class="badge b-amber">maxed out</span>':''}
-            ${active&&p?.maxNew>0?`<span class="badge b-green">+${p.maxNew} new</span>`:''}
-            ${p?.levelPref?`<span class="badge b-gray">${p.levelPref}</span>`:''}
-          </div>
-        </div>`;
-      }).join('')}
-    </div>
-  `;
-}
-
-function filterInstGrid() {
-  const q = (document.getElementById("inst-search")?.value||"").toLowerCase();
-  const f = document.getElementById("inst-filter")?.value||"all";
-  document.querySelectorAll(".inst-card").forEach(card => {
-    const name = card.querySelector(".inst-name")?.textContent||"";
-    const p = INSTRUCTOR_PROFILES[name];
-    const active = p?.active !== false;
-    const {shadow} = classesForInstructor(name);
-    let show = true;
-    if (q && !name.toLowerCase().includes(q)) show = false;
-    if (f==="active" && !active) show = false;
-    if (f==="inactive" && active) show = false;
-    if (f==="open" && !(active && p?.maxNew > 0)) show = false;
-    if (f==="maxed" && !(active && p?.maxNew === 0)) show = false;
-    if (f==="shadows" && shadow.length===0) show = false;
-    card.style.display = show ? "" : "none";
-  });
-}
-
-function openProfile(name) {
-  selectedInstructor = name;
-  renderProfile(document.getElementById("tab-instructors"), name);
-}
-
-function renderProfile(el, name) {
-  const c = avatarColor(name);
-  const p = INSTRUCTOR_PROFILES[name] || {active:true};
-  const {lead, shadow} = classesForInstructor(name);
-  const allC = [...lead, ...shadow];
-
-  el.innerHTML = `
-    <button class="back-btn" onclick="selectedInstructor=null;renderInstructors();">← All instructors</button>
-    <div class="profile-header">
-      <div class="profile-avatar" style="background:${c.bg};color:${c.txt}">${initials(name)}</div>
-      <div>
-        <div class="profile-name">${name}</div>
-        <div class="profile-meta">
-          ${p.active===false?'<span class="badge b-red">Inactive</span>':'<span class="badge b-green">Active</span>'}
-          ${p.maxNew===0?'<span class="badge b-amber">Maxed out</span>':p.maxNew?`<span class="badge b-green">Open to ${p.maxNew} new</span>`:''}
-          ${p.levelPref?`<span class="badge b-gray">Pref: ${p.levelPref}</span>`:''}
-          ${shadow.length?`<span class="badge b-purple">Shadowing ${shadow.length} class${shadow.length>1?'es':''}</span>`:''}
-        </div>
-      </div>
-    </div>
-
-    ${p.note?`<div class="section-box" style="border-color:rgba(88,166,255,.2);margin-bottom:12px;">
-      <div class="section-label">Notes</div>
-      <div class="note-box">${p.note}</div>
-    </div>`:''}
-
-    <div class="two-col">
-      <div>
-        <div class="section-box">
-          <div class="section-label">Lead classes (${lead.length})</div>
-          ${lead.length
-            ? lead.map(cls=>`<div class="class-pill lead" style="display:flex;">
-                <span style="font-weight:600;color:var(--accent)">${cls.classId||cls.className}</span>
-                <span style="color:var(--muted);margin-left:6px;">${[cls.day,cls.time].filter(Boolean).join(' ')}</span>
-                ${cls.delivery?`<span style="margin-left:4px;">${cls.delivery==='online'?'🌐':'🏫'}</span>`:''}
-              </div>`).join('')
-            : '<div class="empty">No lead classes found in current data.</div>'}
-        </div>
-        ${shadow.length?`<div class="section-box" style="border-color:rgba(188,140,255,.2);">
-          <div class="section-label" style="color:#d2a8ff;">Shadow classes (${shadow.length})</div>
-          ${shadow.map(cls=>{
-            const d = getShadowData(cls.classId||cls.className, name);
-            return `<div class="class-pill shadow" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 10px;">
-              <div style="display:flex;align-items:center;gap:8px;width:100%;">
-                <span style="font-weight:600;color:#d2a8ff">${cls.classId||cls.className}</span>
-                <span style="color:var(--muted);font-size:11px;">${[cls.day,cls.time].filter(Boolean).join(' ')}</span>
-                <span style="margin-left:auto;font-size:11px;color:#d2a8ff;">${d.sessions} session${d.sessions!==1?'s':''}</span>
-                ${d.cleared?'<span class="badge b-purple">✓ cleared</span>':''}
-              </div>
-              ${d.notes?`<div style="font-size:11px;color:var(--muted);margin-top:2px;">${d.notes}</div>`:''}
-            </div>`;
-          }).join('')}
-        </div>`:''}
-      </div>
-      <div>
-        <div class="section-box">
-          <div class="section-label">Schedule summary</div>
-          ${allC.length?`<div style="font-size:13px;color:var(--muted);">
-            ${['Mon','Tue','Wed','Thu','Fri','Sat'].map(day=>{
-              const dayClasses = allC.filter(c=>(c.day||'').toLowerCase().startsWith(day.toLowerCase()));
-              if (!dayClasses.length) return '';
-              return `<div style="margin-bottom:6px;"><span style="color:var(--text);font-weight:600;min-width:36px;display:inline-block;">${day}</span>
-                ${dayClasses.map(c=>`<span style="margin-left:4px;font-size:11px;background:var(--surface2);padding:2px 6px;border-radius:4px;">${c.time||'?'} ${c.classId||c.className}</span>`).join('')}
-              </div>`;
-            }).join('')}
-          </div>` : '<div class="empty">No classes in current data.</div>'}
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-// ════════════════════════════════════════════════════════
-// TAB 2 — AVAILABILITY ROLLUP
-// ════════════════════════════════════════════════════════
-function renderAvailability() {
-  const el = document.getElementById("tab-availability");
-  el.innerHTML = `
-    <div class="avail-controls">
-      <select id="av-day">
-        <option value="">All days</option>
-        ${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map(d=>`<option value="${d}">${d}</option>`).join('')}
-      </select>
-      <select id="av-delivery">
-        <option value="">All delivery</option>
-        <option value="in-person">🏫 In-person</option>
-        <option value="online">🌐 Online</option>
-      </select>
-      <input class="filter-input" id="av-inst-search" placeholder="Filter instructor…" style="min-width:160px;"/>
-      <button onclick="renderAvGrid()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:7px 14px;border-radius:8px;font-family:inherit;font-size:13px;cursor:pointer;">Apply</button>
-    </div>
-    <div id="av-grid"></div>
-  `;
-  // Auto-attach change listeners
-  ['av-day','av-delivery'].forEach(id=>document.getElementById(id).addEventListener('change',renderAvGrid));
-  document.getElementById('av-inst-search').addEventListener('input',renderAvGrid);
-  renderAvGrid();
-}
-
-function renderAvGrid() {
-  const day = (document.getElementById("av-day")?.value||"").toLowerCase().slice(0,3);
-  const delivery = document.getElementById("av-delivery")?.value||"";
-  const search = (document.getElementById("av-inst-search")?.value||"").toLowerCase();
-  const el = document.getElementById("av-grid");
-  if (!el) return;
-
-  const filteredClasses = allClasses.filter(c => {
-    if (day && !(c.day||"").toLowerCase().startsWith(day)) return false;
-    if (delivery && c.delivery !== delivery) return false;
-    return true;
-  });
-
-  // Group by day then time
-  const byDayTime = {};
-  filteredClasses.forEach(c => {
-    const key = `${c.day||'?'} ${c.time||'?'}`;
-    if (!byDayTime[key]) byDayTime[key] = {day:c.day,time:c.time,classes:[]};
-    byDayTime[key].classes.push(c);
-  });
-
-  const DAY_ORDER = {mon:0,tue:1,wed:2,thu:3,fri:4,sat:5,sun:6};
-  const slots = Object.values(byDayTime).sort((a,b)=>{
-    const da = DAY_ORDER[(a.day||'').toLowerCase().slice(0,3)]??9;
-    const db = DAY_ORDER[(b.day||'').toLowerCase().slice(0,3)]??9;
-    if (da!==db) return da-db;
-    const ta = (a.time||'').match(/(\d+):(\d+)/);
-    const tb = (b.time||'').match(/(\d+):(\d+)/);
-    const ma = ta ? parseInt(ta[1])*60+parseInt(ta[2]) : 9999;
-    const mb = tb ? parseInt(tb[1])*60+parseInt(tb[2]) : 9999;
-    return ma-mb;
-  });
-
-  if (!slots.length) { el.innerHTML='<div class="empty">No classes match these filters.</div>'; return; }
-
-  el.innerHTML = `<div class="time-grid"><table class="time-table">
-    <thead><tr>
-      <th>Day</th><th>Time</th><th>Lead instructor</th><th>Shadow(s)</th><th>Class</th><th>Delivery</th><th>Students</th>
-    </tr></thead>
-    <tbody>
-    ${slots.flatMap(slot=>slot.classes.map(c=>{
-      const instMatch = !search || normalizeName(c.instructor||"").toLowerCase().includes(search) || (c.shadows||[]).map(s=>normalizeName(s)).some(s=>s.toLowerCase().includes(search));
-      if (!instMatch) return '';
-      const shadowBadges = (c.shadows||[]).map(s=>`<span class="avail-pip pip-shadow">${s}</span>`).join('');
-      return `<tr>
-        <td style="color:var(--text);font-weight:500;">${c.day||'—'}</td>
-        <td class="time-label">${c.time||'—'}</td>
-        <td>${c.instructor?`<span class="avail-pip pip-class">${c.instructor}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
-        <td>${shadowBadges||'<span style="color:var(--muted)">—</span>'}</td>
-        <td style="color:var(--accent);font-weight:500;">${c.classId||c.className}</td>
-        <td>${c.delivery?`<span class="avail-pip ${c.delivery==='online'?'pip-online':'pip-ip'}">${c.delivery==='online'?'🌐 Online':'🏫 In-person'}</span>`:'—'}</td>
-        <td style="color:var(--muted);">${c.students?.length??0}</td>
-      </tr>`;
-    })).join('')}
-    </tbody>
-  </table></div>`;
-}
-
-// ════════════════════════════════════════════════════════
-// TAB 3 — CONFLICTS
-// ════════════════════════════════════════════════════════
-function renderConflicts() {
-  const el = document.getElementById("tab-conflicts");
-  const conflicts = detectConflicts();
-
-  const inactive = Object.entries(INSTRUCTOR_PROFILES).filter(([,p])=>p.active===false);
-
-  el.innerHTML = `
-    <div style="margin-bottom:24px;">
-      <div class="section-label" style="margin-bottom:12px;">Detected scheduling conflicts (${conflicts.length})</div>
-      ${conflicts.length
-        ? conflicts.map(c=>`
-          <div class="conflict-card">
-            <div class="conflict-title">${c.type}</div>
-            <div class="conflict-detail">${c.detail}</div>
-            <div style="margin-top:8px;">${c.tags.map(t=>`<span class="conflict-tag">${t}</span>`).join('')}</div>
-          </div>`).join('')
-        : '<div class="empty">No conflicts detected in current data.</div>'}
-    </div>
-
-    <div>
-      <div class="section-label" style="margin-bottom:12px;">Inactive instructors (${inactive.length})</div>
-      ${inactive.map(([name,p])=>`
-        <div style="background:var(--surface);border:1px solid rgba(248,81,73,.2);border-radius:10px;padding:12px 16px;margin-bottom:8px;">
-          <span style="font-weight:600;color:#ffa198;">${name}</span>
-          <span style="color:var(--muted);font-size:13px;margin-left:10px;">${p.note}</span>
-        </div>`).join('')}
-    </div>
-  `;
-}
-
-function detectConflicts() {
-  const conflicts = [];
-
-  // Same instructor assigned as both lead and shadow on same class
-  allClasses.forEach(c => {
-    const lead = normalizeName(c.instructor||"");
-    const shadows = (c.shadows||[]).map(s=>normalizeName(s));
-    if (lead && shadows.includes(lead)) {
-      conflicts.push({
-        type:"Lead also listed as shadow",
-        detail:`${lead} is both lead and shadow on class ${c.classId||c.className} (${c.day} ${c.time}).`,
-        tags:[lead, c.classId||c.className, c.day]
-      });
-    }
-  });
-
-  // Same time slot, same lead instructor on multiple classes
-  const byInstructor = {};
-  allClasses.forEach(c => {
-    const lead = normalizeName(c.instructor||"");
-    const key = `${lead}|${(c.day||'').toLowerCase().slice(0,3)}|${c.time}`;
-    if (!lead) return;
-    if (!byInstructor[key]) byInstructor[key] = [];
-    byInstructor[key].push(c);
-  });
-  Object.entries(byInstructor).forEach(([key, classes]) => {
-    if (classes.length > 1) {
-      const [inst,day,time] = key.split('|');
-      conflicts.push({
-        type:"Double-booked lead instructor",
-        detail:`${inst} is assigned as lead to ${classes.length} classes at the same time: ${classes.map(c=>c.classId||c.className).join(', ')}`,
-        tags:[inst, day, time, ...classes.map(c=>c.classId||c.className)]
-      });
-    }
-  });
-
-  // Same time slot, same shadow on multiple classes
-  const byShadow = {};
-  allClasses.forEach(c => {
-    (c.shadows||[]).forEach(s => {
-      const name = normalizeName(s);
-      const key = `${name}|${(c.day||'').toLowerCase().slice(0,3)}|${c.time}`;
-      if (!byShadow[key]) byShadow[key] = [];
-      byShadow[key].push(c);
-    });
-  });
-  Object.entries(byShadow).forEach(([key, classes]) => {
-    if (classes.length > 1) {
-      const [inst,day,time] = key.split('|');
-      conflicts.push({
-        type:"Shadow instructor double-booked",
-        detail:`${inst} is shadowing ${classes.length} classes at the same time: ${classes.map(c=>c.classId||c.className).join(', ')}`,
-        tags:[inst, day, time]
-      });
-    }
-  });
-
-  // Instructors marked inactive but still assigned
-  const inactiveNames = new Set(Object.entries(INSTRUCTOR_PROFILES).filter(([,p])=>p.active===false).map(([n])=>n));
-  allClasses.forEach(c => {
-    const lead = normalizeName(c.instructor||"");
-    const affectedLead = lead && inactiveNames.has(lead) ? [lead] : [];
-    const affectedShadows = (c.shadows||[]).map(s=>normalizeName(s)).filter(s=>inactiveNames.has(s));
-    const affected = [...new Set([...affectedLead, ...affectedShadows])];
-    if (affected.length) {
-      conflicts.push({
-        type:"Inactive instructor assigned to class",
-        detail:`${affected.join(', ')} ${affected.length>1?'are':'is'} marked inactive but assigned to ${c.classId||c.className} (${c.day} ${c.time}).`,
-        tags:[...affected, c.classId||c.className]
-      });
-    }
-  });
-
-  return conflicts;
-}
-
-// ════════════════════════════════════════════════════════
-// TAB 4 — SHADOW TRACKER
-// ════════════════════════════════════════════════════════
-function renderShadows() {
-  const el = document.getElementById("tab-shadows");
-
-  // Build list of all shadow relationships from current class data
-  const relationships = [];
-  allClasses.forEach(c => {
-    (c.shadows||[]).forEach(name => {
-      relationships.push({name: normalizeName(name), cls:c});
-    });
-  });
-
-  if (!relationships.length) {
-    el.innerHTML = `<div class="empty">No shadow instructors found in current class data.<br><br>Add a <code>Shadows</code> column to your CSV with semicolon-separated instructor names (e.g. <code>Cameron;Jordan</code>).</div>`;
+onAuthStateChanged(auth, async user=>{
+  if (!user){window.location.href="login.html";return;}
+  currentUser=user;
+  const [ps,all]=await Promise.all([getDoc(doc(db,"instructors",user.uid)),getDocs(collection(db,"instructors"))]);
+  if (!ps.exists()){
+    document.getElementById("spinner").innerHTML='<p style="color:var(--red)">No profile found. Contact an administrator.</p>';
     return;
   }
+  currentProfile={uid:user.uid,...ps.data()};
+  allProfiles=all.docs.map(d=>({uid:d.id,...d.data()})).sort((a,b)=>(a.displayName||"").localeCompare(b.displayName||""));
+  draftAvail=clone(currentProfile.availability||{});
+  document.getElementById("user-label").textContent=currentProfile.displayName;
+  if (currentProfile.role==="admin") document.getElementById("admin-link").style.display="";
+  allClasses=await fetchClasses();
+  document.getElementById("spinner").style.display="none";
+  document.getElementById("app").style.display="";
+  renderTab("my-availability");
+});
 
-  // Group by instructor name
-  const byName = {};
-  relationships.forEach(r => {
-    if (!byName[r.name]) byName[r.name] = [];
-    byName[r.name].push(r.cls);
+async function fetchClasses(){
+  try{
+    const r=await fetch("https://corsproxy.io/?"+encodeURIComponent(CLASS_DATA_URL),{cache:"no-cache"});
+    return r.ok?parseCSV(await r.text()):[];
+  }catch{return [];}
+}
+
+function parseCSV(text){
+  const lines=text.trim().split(/\r?\n/);
+  const hdr=lines[0].split(",").map(h=>h.trim().toLowerCase());
+  const ci=hdr.indexOf("classid")>=0?hdr.indexOf("classid"):hdr.indexOf("class");
+  const di=hdr.indexOf("day"),ti=hdr.indexOf("time"),ii=hdr.indexOf("instructor");
+  const shi=hdr.indexOf("shadows"),deli=hdr.indexOf("delivery"),oi=hdr.indexOf("comment");
+  if (ci<0) return [];
+  const map={},meta={};
+  for (let i=1;i<lines.length;i++){
+    const c=lines[i].split(",").map(v=>v.trim());
+    if (c.length<2||!c[ci]) continue;
+    const cn=c[ci];
+    if (!map[cn]){map[cn]=[];meta[cn]={classId:cn,
+      day:di>=0?c[di]:"",time:ti>=0?c[ti]:"",instructor:ii>=0?c[ii]:"",
+      shadows:shi>=0?c[shi].split(";").map(s=>s.trim()).filter(Boolean):[],
+      delivery:deli>=0?(c[deli].toLowerCase().includes("online")?"online":"in-person"):"",
+      comment:oi>=0?c[oi]:""};
+    }
+    const ni=hdr.indexOf("name"),gi=hdr.indexOf("grade"),bi=hdr.indexOf("ability")>=0?hdr.indexOf("ability"):hdr.indexOf("level");
+    if (ni>=0&&gi>=0&&bi>=0&&c[ni]) map[cn].push({name:c[ni],grade:parseFloat(c[gi])||0,ability:parseFloat(c[bi])||0});
+  }
+  return Object.entries(map).map(([cn,students])=>({...meta[cn],className:cn,students}));
+}
+
+// Match CSV name → Firestore profile by UID (not string-matching)
+function matchProfile(csvName){
+  if (!csvName) return null;
+  const t=csvName.trim();
+  let p=allProfiles.find(x=>x.displayName===t);
+  if (p) return p;
+  const first=t.split(" ")[0].toLowerCase();
+  return allProfiles.find(x=>(x.displayName||"").split(" ")[0].toLowerCase()===first)||null;
+}
+
+function classesForProfile(profile){
+  const lead=allClasses.filter(c=>matchProfile(c.instructor)?.uid===profile.uid);
+  const shadow=allClasses.filter(c=>c.shadows.some(s=>matchProfile(s)?.uid===profile.uid));
+  return {lead,shadow};
+}
+
+window.showTab=function(tab,btn){
+  if (unsaved&&tab!=='my-availability'){if(!confirm("Unsaved availability changes. Leave anyway?"))return;unsaved=false;}
+  activeTab=tab;selectedInst=null;
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  if(btn) btn.classList.add("active");
+  ["my-availability","instructors","rollup","conflicts","shadows"].forEach(t=>{
+    document.getElementById("tab-"+t).style.display=t===tab?"":"none";
   });
+  renderTab(tab);
+};
 
-  const totalCleared = relationships.filter(r => {
-    const d = getShadowData(r.cls.classId||r.cls.className, r.name);
-    return d.cleared;
-  }).length;
+function renderTab(t){
+  if(t==="my-availability") renderMine();
+  else if(t==="instructors") renderInstructors();
+  else if(t==="rollup") renderRollup();
+  else if(t==="conflicts") renderConflicts();
+  else if(t==="shadows") renderShadows();
+}
 
-  el.innerHTML = `
-    <div class="metrics" style="grid-template-columns:repeat(3,1fr);">
-      <div class="metric"><div class="metric-label">Shadow instructors</div><div class="metric-value" style="color:var(--purple)">${Object.keys(byName).length}</div></div>
-      <div class="metric"><div class="metric-label">Shadow assignments</div><div class="metric-value">${relationships.length}</div></div>
-      <div class="metric"><div class="metric-label">Cleared to lead</div><div class="metric-value ok">${totalCleared}</div></div>
-    </div>
-
-    ${Object.entries(byName).sort(([a],[b])=>a.localeCompare(b)).map(([name,classes])=>{
-      const c = avatarColor(name);
-      return `<div style="margin-bottom:20px;">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-          <div style="width:32px;height:32px;border-radius:50%;background:${c.bg};color:${c.txt};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">${initials(name)}</div>
-          <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:#d2a8ff;">${name}</div>
-          <div style="font-size:12px;color:var(--muted);">${classes.length} class${classes.length!==1?'es':''}</div>
+// ── MY AVAILABILITY ──
+function renderMine(){
+  const el=document.getElementById("tab-my-availability");
+  const p=currentProfile, c=ac(p.displayName);
+  const {lead,shadow}=classesForProfile(p);
+  el.innerHTML=`
+    <div class="profile-header">
+      <div class="profile-avatar" style="background:${c.bg};color:${c.txt}">${ini(p.displayName)}</div>
+      <div>
+        <div class="profile-name">${p.displayName}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;">
+          ${p.role==="admin"?'<span class="badge b-purple">Admin</span>':''}
+          ${p.active===false?'<span class="badge b-red">Inactive</span>':'<span class="badge b-green">Active</span>'}
+          ${p.maxNew===0?'<span class="badge b-amber">No new classes</span>':p.maxNew?`<span class="badge b-green">Open to ${p.maxNew} new</span>`:''}
+          ${p.levelPref?`<span class="badge b-gray">${p.levelPref}</span>`:''}
         </div>
-        ${classes.map(cls=>{
-          const cid = (cls.classId||cls.className).replace(/[^a-z0-9]/gi,'_');
-          const d = getShadowData(cls.classId||cls.className, name);
-          const safeName = name.replace(/\s+/g,'_');
-          return `<div class="shadow-tracker-card" id="stc-${cid}-${safeName}">
-            <div class="shadow-tracker-header">
-              <div>
-                <div class="shadow-tracker-name">${cls.classId||cls.className}</div>
-                <div class="shadow-tracker-class">${[cls.day,cls.time,cls.instructor?`Lead: ${cls.instructor}`:''].filter(Boolean).join(' · ')}</div>
+      </div>
+    </div>
+    ${p.notes?`<div class="card" style="border-color:rgba(88,166,255,.2);"><div class="section-label">Your notes</div><div class="note-box">${p.notes}</div></div>`:''}
+    <div class="card">
+      <div class="section-label">Weekly availability — click a cell to cycle through states</div>
+      <div id="avail-grid-wrap"></div>
+      <div class="avail-legend">
+        <span><span class="legend-dot" style="background:rgba(63,185,80,.35)"></span>In-person only</span>
+        <span><span class="legend-dot" style="background:rgba(88,166,255,.35)"></span>Online only</span>
+        <span><span class="legend-dot" style="background:rgba(188,140,255,.35)"></span>Both</span>
+        <span><span class="legend-dot" style="background:var(--surface2);border:1px solid #1c2333;"></span>Unavailable</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
+      <span class="save-status" id="save-status"></span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost" onclick="resetDraft()">Reset</button>
+        <button class="btn btn-primary" id="save-btn" onclick="saveAvail()">Save availability</button>
+      </div>
+    </div>
+    ${lead.length||shadow.length?`<div class="card" style="margin-top:20px;">
+      <div class="section-label">Your assigned classes</div>
+      ${lead.map(cls=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #0a0f18;font-size:13px;">
+        <span style="font-weight:600;color:var(--accent);">${cls.classId}</span>
+        <span style="color:var(--muted);">${[cls.day,cls.time].filter(Boolean).join(' · ')}</span>
+        <span class="pip ${cls.delivery==='online'?'pip-online':'pip-ip'}">${cls.delivery==='online'?'🌐':'🏫'}</span>
+      </div>`).join('')}
+      ${shadow.map(cls=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #0a0f18;font-size:13px;">
+        <span style="font-weight:600;color:#d2a8ff;">${cls.classId}</span>
+        <span style="color:var(--muted);">${[cls.day,cls.time].filter(Boolean).join(' · ')}</span>
+        <span class="pip pip-shadow">Shadow</span>
+        ${cls.instructor?`<span style="color:var(--muted);font-size:11px;">Lead: ${cls.instructor}</span>`:''}
+      </div>`).join('')}
+    </div>`:''}`;
+  buildGrid("avail-grid-wrap",draftAvail,true);
+}
+
+function buildGrid(wrapperId,avail,editable){
+  const w=document.getElementById(wrapperId); if(!w) return;
+  let h=`<div class="avail-grid"><div class="ag-label"></div>`;
+  DAYS.forEach(d=>{h+=`<div class="ag-header">${d}</div>`;});
+  SLOTS.forEach(slot=>{
+    h+=`<div class="ag-label">${slot}</div>`;
+    DAYS.forEach(day=>{
+      const st=(avail[day]||{})[slot]||'none';
+      if(editable) h+=`<div class="ag-cell ${st}" title="${TITLES[st]}" onclick="cycleSlot('${day}','${slot}',this)">${st==='none'?'':LABELS[st]}</div>`;
+      else h+=`<div class="ag-cell ${st} readonly" title="${TITLES[st]}">${st==='none'?'':LABELS[st]}</div>`;
+    });
+  });
+  h+=`</div>`;
+  w.innerHTML=h;
+}
+
+window.cycleSlot=function(day,slot,el){
+  const cur=(draftAvail[day]||{})[slot]||'none';
+  const nxt=STATES[(STATES.indexOf(cur)+1)%STATES.length];
+  if(!draftAvail[day]) draftAvail[day]={};
+  draftAvail[day][slot]=nxt;
+  el.className=`ag-cell ${nxt}`; el.title=TITLES[nxt]; el.textContent=nxt==='none'?'':LABELS[nxt];
+  unsaved=true; setSS("");
+};
+window.resetDraft=function(){draftAvail=clone(currentProfile.availability||{});unsaved=false;buildGrid("avail-grid-wrap",draftAvail,true);setSS("Reset to last saved.");};
+window.saveAvail=async function(){
+  const btn=document.getElementById("save-btn"); btn.disabled=true; btn.textContent="Saving…";
+  try{
+    await updateDoc(doc(db,"instructors",currentUser.uid),{availability:draftAvail,availabilityUpdatedAt:serverTimestamp()});
+    currentProfile.availability=clone(draftAvail); unsaved=false; setSS("✓ Saved",true);
+  }catch(e){setSS("Error: "+e.message);}
+  finally{btn.disabled=false;btn.textContent="Save availability";}
+};
+function setSS(msg,ok){const e=document.getElementById("save-status");if(!e)return;e.textContent=msg;e.className="save-status"+(ok?" saved":"");}
+
+// ── ALL INSTRUCTORS ──
+function renderInstructors(){
+  const el=document.getElementById("tab-instructors");
+  if(selectedInst){renderProfile(el,selectedInst);return;}
+  const active=allProfiles.filter(p=>p.active!==false);
+  el.innerHTML=`
+    <div class="metrics">
+      <div class="metric"><div class="metric-label">Active</div><div class="metric-value ok">${active.length}</div></div>
+      <div class="metric"><div class="metric-label">Open to new</div><div class="metric-value ok">${active.filter(p=>p.maxNew>0).length}</div></div>
+      <div class="metric"><div class="metric-label">Maxed out</div><div class="metric-value warn">${active.filter(p=>p.maxNew===0).length}</div></div>
+      <div class="metric"><div class="metric-label">Inactive</div><div class="metric-value crit">${allProfiles.filter(p=>p.active===false).length}</div></div>
+    </div>
+    <div class="filter-row">
+      <input id="iq" placeholder="Search…" oninput="filterIG()" style="min-width:180px;"/>
+      <select id="if" onchange="filterIG()">
+        <option value="all">All</option><option value="active">Active</option>
+        <option value="open">Open to new</option><option value="maxed">Maxed</option><option value="inactive">Inactive</option>
+      </select>
+    </div>
+    <div class="inst-grid" id="inst-grid">
+      ${allProfiles.map(p=>{
+        const c=ac(p.displayName);const{lead,shadow}=classesForProfile(p);
+        return`<div class="inst-card${p.active===false?' inactive':''}" data-n="${(p.displayName||'').toLowerCase()}" data-a="${p.active!==false}" data-m="${p.maxNew??''}" onclick="openProf('${p.uid}')">
+          <div class="inst-avatar" style="background:${c.bg};color:${c.txt}">${ini(p.displayName)}</div>
+          <div class="inst-name">${p.displayName||'—'}</div>
+          <div class="inst-sub" style="margin-bottom:5px;">${lead.length} class${lead.length!==1?'es':''}${shadow.length?` · <span style="color:#d2a8ff">${shadow.length} shadow</span>`:''}</div>
+          <div>${p.active===false?'<span class="badge b-red">inactive</span>':''}${p.active!==false&&p.maxNew===0?'<span class="badge b-amber">maxed</span>':''}${p.active!==false&&p.maxNew>0?`<span class="badge b-green">+${p.maxNew} new</span>`:''}${p.levelPref?`<span class="badge b-gray">${p.levelPref}</span>`:''}</div>
+        </div>`;}).join('')}
+    </div>`;
+}
+window.filterIG=function(){
+  const q=(document.getElementById("iq")?.value||"").toLowerCase();
+  const f=document.getElementById("if")?.value||"all";
+  document.querySelectorAll(".inst-card").forEach(card=>{
+    const a=card.dataset.a==="true",m=card.dataset.m;
+    let show=true;
+    if(q&&!card.dataset.n.includes(q)) show=false;
+    if(f==="active"&&!a) show=false; if(f==="inactive"&&a) show=false;
+    if(f==="open"&&!(a&&m>0)) show=false; if(f==="maxed"&&!(a&&m==="0")) show=false;
+    card.style.display=show?"":"none";
+  });
+};
+window.openProf=function(uid){selectedInst=uid;renderProfile(document.getElementById("tab-instructors"),uid);};
+function renderProfile(el,uid){
+  const p=allProfiles.find(x=>x.uid===uid); if(!p) return;
+  const c=ac(p.displayName);const{lead,shadow}=classesForProfile(p);const isOwn=uid===currentUser.uid;
+  el.innerHTML=`
+    <button class="back-btn" onclick="selectedInst=null;renderInstructors();">← All instructors</button>
+    <div class="profile-header">
+      <div class="profile-avatar" style="background:${c.bg};color:${c.txt}">${ini(p.displayName)}</div>
+      <div><div class="profile-name">${p.displayName}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;">
+          ${p.role==="admin"?'<span class="badge b-purple">Admin</span>':'<span class="badge b-blue">Instructor</span>'}
+          ${p.active===false?'<span class="badge b-red">Inactive</span>':'<span class="badge b-green">Active</span>'}
+          ${p.maxNew===0?'<span class="badge b-amber">No new</span>':p.maxNew?`<span class="badge b-green">+${p.maxNew} new</span>`:''}
+          ${p.levelPref?`<span class="badge b-gray">${p.levelPref}</span>`:''}
+          ${isOwn?'<span class="badge b-blue">You</span>':''}
+        </div>
+      </div>
+    </div>
+    ${p.notes?`<div class="card" style="border-color:rgba(88,166,255,.15);margin-bottom:12px;"><div class="section-label">Notes</div><div class="note-box">${p.notes}</div></div>`:''}
+    <div class="two-col">
+      <div>
+        <div class="card"><div class="section-label">Lead classes (${lead.length})</div>
+          ${lead.length?lead.map(cls=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #0a0f18;font-size:13px;">
+            <span style="font-weight:600;color:var(--accent);">${cls.classId}</span>
+            <span style="color:var(--muted);">${[cls.day,cls.time].filter(Boolean).join(' ')}</span>
+            <span class="pip ${cls.delivery==='online'?'pip-online':'pip-ip'}">${cls.delivery==='online'?'🌐':'🏫'}</span>
+          </div>`).join(''):'<div class="empty" style="padding:10px 0;">None in current data.</div>'}
+        </div>
+        ${shadow.length?`<div class="card" style="border-color:rgba(188,140,255,.2);">
+          <div class="section-label" style="color:#d2a8ff;">Shadow classes (${shadow.length})</div>
+          ${shadow.map(cls=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #0a0f18;font-size:13px;">
+            <span style="font-weight:600;color:#d2a8ff;">${cls.classId}</span>
+            <span style="color:var(--muted);">${[cls.day,cls.time].filter(Boolean).join(' ')}</span>
+          </div>`).join('')}
+        </div>`:''}
+      </div>
+      <div><div class="card"><div class="section-label">Weekly availability</div><div id="prof-av-grid"></div></div></div>
+    </div>`;
+  buildGrid("prof-av-grid",p.availability||{},false);
+}
+
+// ── ROLLUP ──
+function renderRollup(){
+  const el=document.getElementById("tab-rollup");
+  el.innerHTML=`
+    <div class="filter-row">
+      <select id="rd"><option value="">All days</option>${DAYS.map(d=>`<option value="${d}">${d}</option>`).join('')}</select>
+      <select id="rm"><option value="">Any availability</option><option value="ip">In-person</option><option value="online">Online</option><option value="both">Both</option></select>
+      <select id="rs"><option value="">Any time</option>${SLOTS.map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
+      <input id="rq" placeholder="Filter instructor…" oninput="buildRollup()" style="min-width:150px;"/>
+    </div>
+    <div id="rollup-wrap"></div>`;
+  ["rd","rm","rs"].forEach(id=>document.getElementById(id).addEventListener("change",buildRollup));
+  buildRollup();
+}
+window.buildRollup=function(){
+  const day=document.getElementById("rd")?.value||"";
+  const mode=document.getElementById("rm")?.value||"";
+  const slot=document.getElementById("rs")?.value||"";
+  const q=(document.getElementById("rq")?.value||"").toLowerCase();
+  const wrap=document.getElementById("rollup-wrap"); if(!wrap) return;
+  const days=day?[day]:DAYS, slots=slot?[slot]:SLOTS;
+  const insts=allProfiles.filter(p=>{
+    if(p.active===false) return false;
+    if(q&&!(p.displayName||"").toLowerCase().includes(q)) return false;
+    for(const d of days) for(const s of slots){
+      const st=(p.availability?.[d]||{})[s]||"none"; if(st==="none") continue;
+      if(!mode) return true;
+      if(mode==="ip"&&(st==="ip"||st==="both")) return true;
+      if(mode==="online"&&(st==="online"||st==="both")) return true;
+      if(mode==="both"&&st==="both") return true;
+    }
+    return false;
+  });
+  if(!insts.length){wrap.innerHTML='<div class="empty">No matches.</div>';return;}
+  const cols=[];
+  for(const d of days) for(const s of slots){
+    const any=insts.some(p=>{const st=(p.availability?.[d]||{})[s]||"none";if(st==="none")return false;
+      if(!mode)return true;if(mode==="ip")return st==="ip"||st==="both";
+      if(mode==="online")return st==="online"||st==="both";if(mode==="both")return st==="both";return false;});
+    if(any) cols.push({day:d,slot:s});
+  }
+  if(!cols.length){wrap.innerHTML='<div class="empty">No availability matches.</div>';return;}
+  wrap.innerHTML=`<div style="overflow-x:auto;"><table class="rollup-table"><thead><tr>
+    <th>Instructor</th>${cols.map(({day,slot})=>`<th style="white-space:nowrap;">${day}<br/><span style="font-weight:400;color:var(--muted);">${slot}</span></th>`).join('')}
+  </tr></thead><tbody>
+  ${insts.map(p=>`<tr>
+    <td style="font-weight:500;cursor:pointer;color:var(--accent);" onclick="showTab('instructors');openProf('${p.uid}')">${p.displayName}</td>
+    ${cols.map(({day,slot})=>{const st=(p.availability?.[day]||{})[slot]||"none";
+      if(st==="none")return`<td></td>`;
+      return`<td><span class="pip ${st==='ip'?'pip-ip':st==='online'?'pip-online':'pip-both'}">${LABELS[st]}</span></td>`;
+    }).join('')}
+  </tr>`).join('')}
+  </tbody></table></div>`;
+};
+
+// ── CONFLICTS ──
+function renderConflicts(){
+  const el=document.getElementById("tab-conflicts");
+  const conflicts=detectConflicts();
+  const inactive=allProfiles.filter(p=>p.active===false);
+  el.innerHTML=`
+    <div style="margin-bottom:24px;"><div class="section-label" style="margin-bottom:10px;">Detected conflicts (${conflicts.length})</div>
+      ${conflicts.length?conflicts.map(c=>`<div class="conflict-card"><div class="conflict-title">${c.type}</div><div class="conflict-detail">${c.detail}</div>
+        <div style="margin-top:6px;">${c.tags.map(t=>`<span class="conflict-tag">${t}</span>`).join('')}</div></div>`).join('')
+        :'<div class="empty">No conflicts detected.</div>'}
+    </div>
+    <div><div class="section-label" style="margin-bottom:10px;">Inactive instructors (${inactive.length})</div>
+      ${inactive.map(p=>`<div style="background:var(--surface);border:1px solid rgba(248,81,73,.2);border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:13px;">
+        <span style="font-weight:600;color:#ffa198;">${p.displayName}</span>
+        ${p.notes?`<span style="color:var(--muted);margin-left:8px;">${p.notes}</span>`:''}
+      </div>`).join('')}
+    </div>`;
+}
+function detectConflicts(){
+  const C=[];
+  // Double-booked lead
+  const bl={};
+  allClasses.forEach(c=>{const p=matchProfile(c.instructor);if(!p)return;const k=`${p.uid}|${(c.day||'').slice(0,3).toLowerCase()}|${c.time}`;if(!bl[k])bl[k]=[];bl[k].push(c);});
+  Object.entries(bl).forEach(([,cls])=>{if(cls.length>1){const p=matchProfile(cls[0].instructor);
+    C.push({type:"Double-booked lead",detail:`${p?.displayName||cls[0].instructor} is lead on ${cls.length} overlapping classes: ${cls.map(c=>c.classId).join(', ')}`,tags:[p?.displayName,...cls.map(c=>c.classId)]});}});
+  // Lead also shadow
+  allClasses.forEach(c=>{const lead=matchProfile(c.instructor);if(!lead)return;
+    c.shadows.forEach(s=>{const sp=matchProfile(s);if(sp&&sp.uid===lead.uid)
+      C.push({type:"Lead also listed as shadow",detail:`${lead.displayName} is both lead and shadow on ${c.classId}.`,tags:[lead.displayName,c.classId]});});});
+  // Inactive assigned
+  allClasses.forEach(c=>{
+    const lead=matchProfile(c.instructor);
+    if(lead&&lead.active===false) C.push({type:"Inactive instructor — lead",detail:`${lead.displayName} is inactive but assigned as lead on ${c.classId}.`,tags:[lead.displayName,c.classId]});
+    c.shadows.forEach(s=>{const sp=matchProfile(s);if(sp&&sp.active===false)
+      C.push({type:"Inactive instructor — shadow",detail:`${sp.displayName} is inactive but listed as shadow on ${c.classId}.`,tags:[sp.displayName,c.classId]});});});
+  // Assigned outside availability
+  allClasses.forEach(c=>{
+    const day=DAYS.find(d=>(c.day||'').toLowerCase().startsWith(d.toLowerCase()));if(!day) return;
+    const slot=SLOTS.find(s=>s===c.time);if(!slot) return;
+    const check=(csvName,role)=>{const p=matchProfile(csvName);if(!p||p.active===false)return;
+      const st=(p.availability?.[day]||{})[slot]||'none';
+      if(st==='none') C.push({type:"Assigned outside stated availability",
+        detail:`${p.displayName} is ${role} on ${c.classId} (${day} ${c.time}) but hasn't marked that slot available.`,
+        tags:[p.displayName,c.classId,day,c.time]});};
+    if(c.instructor) check(c.instructor,'lead');
+    c.shadows.forEach(s=>check(s,'shadow'));
+  });
+  return C;
+}
+
+// ── SHADOW TRACKER ──
+function renderShadows(){
+  const el=document.getElementById("tab-shadows");
+  const rels=[];
+  allClasses.forEach(c=>c.shadows.forEach(s=>{const p=matchProfile(s);if(p) rels.push({profile:p,cls:c});}));
+  if(!rels.length){el.innerHTML=`<div class="empty">No shadow instructors in current class data.<br><br>Add a <code>Shadows</code> column to your CSV with semicolon-separated names.</div>`;return;}
+  const byUid={};
+  rels.forEach(r=>{if(!byUid[r.profile.uid])byUid[r.profile.uid]={profile:r.profile,classes:[]};byUid[r.profile.uid].classes.push(r.cls);});
+  const cleared=rels.filter(r=>gsd(r.cls.classId,r.profile.uid).cleared).length;
+  el.innerHTML=`
+    <div class="metrics" style="grid-template-columns:repeat(3,1fr);">
+      <div class="metric"><div class="metric-label">Shadow instructors</div><div class="metric-value purple">${Object.keys(byUid).length}</div></div>
+      <div class="metric"><div class="metric-label">Assignments</div><div class="metric-value">${rels.length}</div></div>
+      <div class="metric"><div class="metric-label">Cleared to lead</div><div class="metric-value ok">${cleared}</div></div>
+    </div>
+    ${Object.values(byUid).sort((a,b)=>(a.profile.displayName||'').localeCompare(b.profile.displayName||'')).map(({profile:p,classes})=>{
+      const c=ac(p.displayName);
+      return`<div style="margin-bottom:24px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <div style="width:32px;height:32px;border-radius:50%;background:${c.bg};color:${c.txt};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">${ini(p.displayName)}</div>
+          <span style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:#d2a8ff;">${p.displayName}</span>
+          <span style="font-size:12px;color:var(--muted);">${classes.length} class${classes.length!==1?'es':''}</span>
+        </div>
+        ${classes.map(cls=>{const cid=cls.classId;const d=gsd(cid,p.uid);const eid=`${cid.replace(/\W/g,'_')}_${p.uid.slice(0,8)}`;
+          return`<div class="shadow-tracker-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <div><div style="font-weight:700;font-size:14px;color:#d2a8ff;">${cid}</div>
+                <div style="font-size:12px;color:var(--muted);">${[cls.day,cls.time,cls.instructor?`Lead: ${cls.instructor}`:''].filter(Boolean).join(' · ')}</div>
               </div>
-              <div class="shadow-counter">
-                <button class="sc-btn" onclick="stAdjust('${cid}','${name}','${safeName}',-1)">−</button>
-                <div>
-                  <div class="sc-val" id="stval-${cid}-${safeName}">${d.sessions}</div>
-                  <div class="sc-label" style="text-align:center;">sessions</div>
-                </div>
-                <button class="sc-btn" onclick="stAdjust('${cid}','${name}','${safeName}',1)">+</button>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <button class="sc-btn" onclick="sadj('${cid}','${p.uid}','${eid}',-1)">−</button>
+                <div style="text-align:center;"><div class="sc-val" id="sv-${eid}">${d.sessions}</div><div style="font-size:10px;color:var(--muted);">sessions</div></div>
+                <button class="sc-btn" onclick="sadj('${cid}','${p.uid}','${eid}',1)">+</button>
               </div>
             </div>
-            <textarea class="shadow-notes" rows="2" placeholder="Notes for ${name} on this class…"
-              onchange="stSaveNotes('${cid}','${name}')" oninput="stSaveNotes('${cid}','${name}')"
-              id="stnotes-${cid}-${safeName}">${d.notes}</textarea>
-            <label class="cleared-label${d.cleared?' is-cleared':''}" id="stcleared-${cid}-${safeName}">
-              <input type="checkbox" ${d.cleared?'checked':''} onchange="stToggleCleared('${cid}','${name}','${safeName}',this)"/>
+            <textarea class="shadow-notes" rows="2" placeholder="Notes…" id="sn-${eid}"
+              onchange="snote('${cid}','${p.uid}','${eid}')" oninput="snote('${cid}','${p.uid}','${eid}')">${d.notes}</textarea>
+            <label class="cleared-label${d.cleared?' is-cleared':''}" id="sc-${eid}">
+              <input type="checkbox" ${d.cleared?'checked':''} onchange="sclr('${cid}','${p.uid}','${eid}',this)"/>
               Cleared to lead independently
             </label>
-          </div>`;
-        }).join('')}
-      </div>`;
-    }).join('')}
-  `;
+          </div>`;}).join('')}
+      </div>`;}).join('')}`;
 }
+const gsd=(cid,uid)=>{try{return JSON.parse(localStorage.getItem(`bm_sh_${cid}_${uid}`))||{sessions:0,notes:'',cleared:false};}catch{return{sessions:0,notes:'',cleared:false};}};
+const ssd=(cid,uid,d)=>{try{localStorage.setItem(`bm_sh_${cid}_${uid}`,JSON.stringify(d));}catch{}};
+window.sadj=(cid,uid,eid,delta)=>{const d=gsd(cid,uid);d.sessions=Math.max(0,d.sessions+delta);ssd(cid,uid,d);const e=document.getElementById(`sv-${eid}`);if(e)e.textContent=d.sessions;};
+window.snote=(cid,uid,eid)=>{const ta=document.getElementById(`sn-${eid}`);if(!ta)return;const d=gsd(cid,uid);d.notes=ta.value;ssd(cid,uid,d);};
+window.sclr=(cid,uid,eid,cb)=>{const d=gsd(cid,uid);d.cleared=cb.checked;ssd(cid,uid,d);const l=document.getElementById(`sc-${eid}`);if(l)l.classList.toggle('is-cleared',d.cleared);};
 
-function stAdjust(cid, name, safeName, delta) {
-  const d = getShadowData(cid, name);
-  d.sessions = Math.max(0, d.sessions + delta);
-  saveShadowData(cid, name, d);
-  const el = document.getElementById(`stval-${cid}-${safeName}`);
-  if (el) el.textContent = d.sessions;
-}
-function stSaveNotes(cid, name) {
-  const safeName = name.replace(/\s+/g,'_');
-  const el = document.getElementById(`stnotes-${cid}-${safeName}`);
-  if (!el) return;
-  const d = getShadowData(cid, name);
-  d.notes = el.value;
-  saveShadowData(cid, name, d);
-}
-function stToggleCleared(cid, name, safeName, checkbox) {
-  const d = getShadowData(cid, name);
-  d.cleared = checkbox.checked;
-  saveShadowData(cid, name, d);
-  const label = document.getElementById(`stcleared-${cid}-${safeName}`);
-  if (label) label.classList.toggle('is-cleared', d.cleared);
-  // Re-render metrics
-  const totalCleared = document.querySelectorAll('.cleared-label.is-cleared').length;
-  const metric = document.querySelectorAll('.metric-value')[2];
-  if (metric) metric.textContent = totalCleared;
-}
-
-// ════════════════════════════════════════════════════════
-// INIT
-// ════════════════════════════════════════════════════════
-document.addEventListener("DOMContentLoaded", function() {
-  if (CONFIG.dataUrl) {
-    fetchData();
-  } else {
-    showError("No dataUrl configured in CONFIG. Open this file and paste your Google Sheets CSV URL.");
-  }
-});
+window.doSignOut=async()=>{await fbSignOut(auth);window.location.href="login.html";};
 </script>
 </body>
 </html>

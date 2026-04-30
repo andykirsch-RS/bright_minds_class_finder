@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sign In — Bright Minds</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@700;900&family=Inter:wght@400;500;600&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#05080f;--surface:#0d1117;--surface2:#111720;
+  --border:#1c2333;--text:#e6edf3;--muted:#768390;
+  --accent:#58a6ff;--green:#3fb950;--red:#f85149;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:400px;}
+.logo{font-family:'Fraunces',serif;font-size:28px;font-weight:900;margin-bottom:4px;}
+.subtitle{color:var(--muted);font-size:13px;margin-bottom:32px;}
+.form-group{margin-bottom:16px;}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;}
+input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;padding:10px 14px;outline:none;transition:border-color .15s;}
+input:focus{border-color:var(--accent);}
+.btn{width:100%;background:var(--accent);border:none;border-radius:8px;color:#05080f;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;padding:11px;cursor:pointer;margin-top:8px;transition:opacity .15s;}
+.btn:hover{opacity:.85;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.error{background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);border-radius:8px;color:#ffa198;font-size:13px;padding:10px 14px;margin-top:16px;display:none;}
+.forgot{text-align:right;margin-top:8px;}
+.forgot a{color:var(--muted);font-size:12px;cursor:pointer;text-decoration:none;}
+.forgot a:hover{color:var(--accent);}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(5,8,15,.4);border-top-color:#05080f;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.reset-msg{background:rgba(88,166,255,.08);border:1px solid rgba(88,166,255,.2);border-radius:8px;color:#79c0ff;font-size:13px;padding:10px 14px;margin-top:16px;display:none;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">Bright Minds</div>
+  <div class="subtitle">Instructor scheduling — sign in to continue</div>
+
+  <div class="form-group">
+    <label>Email</label>
+    <input type="email" id="email" placeholder="you@example.com" autocomplete="email"/>
+  </div>
+  <div class="form-group">
+    <label>Password</label>
+    <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"/>
+  </div>
+
+  <button class="btn" id="signin-btn" onclick="signIn()">Sign in</button>
+  <div class="forgot"><a onclick="sendReset()">Forgot password?</a></div>
+
+  <div class="error" id="error-box"></div>
+  <div class="reset-msg" id="reset-msg">Password reset email sent — check your inbox.</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+// If already signed in, go straight to availability
+onAuthStateChanged(auth, user => {
+  if (user) window.location.href = "availability.html";
+});
+
+window.signIn = async function() {
+  const email    = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  const btn      = document.getElementById("signin-btn");
+  const errorBox = document.getElementById("error-box");
+  errorBox.style.display = "none";
+  if (!email || !password) { showError("Please enter your email and password."); return; }
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Signing in…';
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    window.location.href = "availability.html";
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = "Sign in";
+    showError(friendlyError(e.code));
+  }
+};
+
+window.sendReset = async function() {
+  const email = document.getElementById("email").value.trim();
+  const errorBox = document.getElementById("error-box");
+  const resetMsg = document.getElementById("reset-msg");
+  errorBox.style.display = "none";
+  resetMsg.style.display = "none";
+  if (!email) { showError("Enter your email address above first."); return; }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    resetMsg.style.display = "block";
+  } catch(e) {
+    showError(friendlyError(e.code));
+  }
+};
+
+function showError(msg) {
+  const el = document.getElementById("error-box");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+function friendlyError(code) {
+  switch(code) {
+    case "auth/user-not-found":
+    case "auth/wrong-password":
+    case "auth/invalid-credential": return "Incorrect email or password.";
+    case "auth/too-many-requests":  return "Too many attempts — try again later or reset your password.";
+    case "auth/invalid-email":      return "That doesn't look like a valid email address.";
+    default: return "Something went wrong. Please try again.";
+  }
+}
+
+// Allow Enter key to submit
+document.addEventListener("keydown", e => { if (e.key === "Enter") window.signIn(); });
+</script>
+</body>
+</html>
