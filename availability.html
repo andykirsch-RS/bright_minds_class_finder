@@ -297,11 +297,33 @@ function parseCSV(text) {
 // ════════════════════════════════════════════════════════
 // HELPERS
 // ════════════════════════════════════════════════════════
+
+// Normalize a name from the CSV to match INSTRUCTOR_PROFILES keys (first name only).
+// Strategy: if the full name starts with a known profile key (case-insensitive), use that key.
+// Otherwise fall back to the first word of the name.
+const _profileKeysByFirstName = {};
+Object.keys(INSTRUCTOR_PROFILES).forEach(k => {
+  _profileKeysByFirstName[k.toLowerCase()] = k;
+});
+
+function normalizeName(rawName) {
+  const trimmed = (rawName || "").trim();
+  // Direct match first
+  if (INSTRUCTOR_PROFILES[trimmed]) return trimmed;
+  // Check if trimmed starts with a known profile key (handles "Alice Schroeder" → "Alice")
+  const lower = trimmed.toLowerCase();
+  for (const [first, key] of Object.entries(_profileKeysByFirstName)) {
+    if (lower === first || lower.startsWith(first + " ")) return key;
+  }
+  // Fall back to first word
+  return trimmed.split(" ")[0];
+}
+
 function allInstructorNames() {
   const names = new Set();
   allClasses.forEach(c => {
-    if (c.instructor) names.add(c.instructor.trim());
-    (c.shadows||[]).forEach(s => names.add(s.trim()));
+    if (c.instructor) names.add(normalizeName(c.instructor));
+    (c.shadows||[]).forEach(s => names.add(normalizeName(s)));
   });
   // Also include profiles not yet in CSV
   Object.keys(INSTRUCTOR_PROFILES).forEach(n => names.add(n));
@@ -309,8 +331,8 @@ function allInstructorNames() {
 }
 
 function classesForInstructor(name) {
-  const lead   = allClasses.filter(c => (c.instructor||"").trim() === name);
-  const shadow = allClasses.filter(c => (c.shadows||[]).map(s=>s.trim()).includes(name));
+  const lead   = allClasses.filter(c => normalizeName(c.instructor||"") === name);
+  const shadow = allClasses.filter(c => (c.shadows||[]).map(s=>normalizeName(s)).includes(name));
   return {lead, shadow};
 }
 
@@ -572,7 +594,7 @@ function renderAvGrid() {
     </tr></thead>
     <tbody>
     ${slots.flatMap(slot=>slot.classes.map(c=>{
-      const instMatch = !search || (c.instructor||"").toLowerCase().includes(search) || (c.shadows||[]).some(s=>s.toLowerCase().includes(search));
+      const instMatch = !search || normalizeName(c.instructor||"").toLowerCase().includes(search) || (c.shadows||[]).map(s=>normalizeName(s)).some(s=>s.toLowerCase().includes(search));
       if (!instMatch) return '';
       const shadowBadges = (c.shadows||[]).map(s=>`<span class="avail-pip pip-shadow">${s}</span>`).join('');
       return `<tr>
@@ -627,11 +649,13 @@ function detectConflicts() {
 
   // Same instructor assigned as both lead and shadow on same class
   allClasses.forEach(c => {
-    if (c.instructor && (c.shadows||[]).map(s=>s.trim()).includes(c.instructor.trim())) {
+    const lead = normalizeName(c.instructor||"");
+    const shadows = (c.shadows||[]).map(s=>normalizeName(s));
+    if (lead && shadows.includes(lead)) {
       conflicts.push({
         type:"Lead also listed as shadow",
-        detail:`${c.instructor} is both lead and shadow on class ${c.classId||c.className} (${c.day} ${c.time}).`,
-        tags:[c.instructor, c.classId||c.className, c.day]
+        detail:`${lead} is both lead and shadow on class ${c.classId||c.className} (${c.day} ${c.time}).`,
+        tags:[lead, c.classId||c.className, c.day]
       });
     }
   });
@@ -639,8 +663,9 @@ function detectConflicts() {
   // Same time slot, same lead instructor on multiple classes
   const byInstructor = {};
   allClasses.forEach(c => {
-    const key = `${c.instructor}|${(c.day||'').toLowerCase().slice(0,3)}|${c.time}`;
-    if (!c.instructor) return;
+    const lead = normalizeName(c.instructor||"");
+    const key = `${lead}|${(c.day||'').toLowerCase().slice(0,3)}|${c.time}`;
+    if (!lead) return;
     if (!byInstructor[key]) byInstructor[key] = [];
     byInstructor[key].push(c);
   });
@@ -659,7 +684,8 @@ function detectConflicts() {
   const byShadow = {};
   allClasses.forEach(c => {
     (c.shadows||[]).forEach(s => {
-      const key = `${s}|${(c.day||'').toLowerCase().slice(0,3)}|${c.time}`;
+      const name = normalizeName(s);
+      const key = `${name}|${(c.day||'').toLowerCase().slice(0,3)}|${c.time}`;
       if (!byShadow[key]) byShadow[key] = [];
       byShadow[key].push(c);
     });
@@ -678,9 +704,10 @@ function detectConflicts() {
   // Instructors marked inactive but still assigned
   const inactiveNames = new Set(Object.entries(INSTRUCTOR_PROFILES).filter(([,p])=>p.active===false).map(([n])=>n));
   allClasses.forEach(c => {
-    const affectedLead = c.instructor && inactiveNames.has(c.instructor.trim()) ? [c.instructor] : [];
-    const affectedShadows = (c.shadows||[]).filter(s=>inactiveNames.has(s.trim()));
-    const affected = [...affectedLead, ...affectedShadows];
+    const lead = normalizeName(c.instructor||"");
+    const affectedLead = lead && inactiveNames.has(lead) ? [lead] : [];
+    const affectedShadows = (c.shadows||[]).map(s=>normalizeName(s)).filter(s=>inactiveNames.has(s));
+    const affected = [...new Set([...affectedLead, ...affectedShadows])];
     if (affected.length) {
       conflicts.push({
         type:"Inactive instructor assigned to class",
@@ -703,7 +730,7 @@ function renderShadows() {
   const relationships = [];
   allClasses.forEach(c => {
     (c.shadows||[]).forEach(name => {
-      relationships.push({name:name.trim(), cls:c});
+      relationships.push({name: normalizeName(name), cls:c});
     });
   });
 
