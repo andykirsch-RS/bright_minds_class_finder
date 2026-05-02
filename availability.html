@@ -672,65 +672,185 @@ function renderProfile(el,uid){
 }
 
 // ── ROLLUP ──
+
+// Returns a Set of "day|slot" strings that an instructor is assigned to (lead or shadow)
+// A 60-min class blocks 4 x 15-min slots starting from the class time.
+function assignedSlotsForProfile(profile) {
+  const blocked = new Set();
+  const {lead, shadow} = classesForProfile(profile);
+  [...lead, ...shadow].forEach(cls => {
+    const day = DAYS.find(d => (cls.day||'').toLowerCase().startsWith(d.toLowerCase()));
+    if (!day || !cls.time) return;
+    // Parse class start time
+    const m = cls.time.match(/(\d+):(\d+)/);
+    if (!m) return;
+    let mins = parseInt(m[1])*60 + parseInt(m[2]);
+    // Block 4 slots (60 min at 15-min granularity)
+    for (let i=0; i<4; i++) {
+      const h = Math.floor(mins/60);
+      const mn = mins%60;
+      const key = `${day}|${h}:${mn.toString().padStart(2,'0')}`;
+      blocked.add(key);
+      mins += 15;
+    }
+  });
+  return blocked;
+}
+
+function slotStatus(profile, day, slot, blockedCache) {
+  // Returns: 'none' | 'ip' | 'online' | 'both' | 'assigned-lead' | 'assigned-shadow'
+  const key = `${day}|${slot}`;
+  if (!blockedCache) blockedCache = assignedSlotsForProfile(profile);
+  if (blockedCache.has(key)) {
+    // Determine lead vs shadow
+    const {lead, shadow} = classesForProfile(profile);
+    const isLead = lead.some(cls => {
+      const d = DAYS.find(d=>(cls.day||'').toLowerCase().startsWith(d.toLowerCase()));
+      return d===day && assignedSlotsForClass(cls).has(key);
+    });
+    return isLead ? 'assigned-lead' : 'assigned-shadow';
+  }
+  return (profile.availability?.[day]||{})[slot]||'none';
+}
+
+function assignedSlotsForClass(cls) {
+  const blocked = new Set();
+  const day = DAYS.find(d=>(cls.day||'').toLowerCase().startsWith(d.toLowerCase()));
+  if (!day||!cls.time) return blocked;
+  const m = cls.time.match(/(\d+):(\d+)/);
+  if (!m) return blocked;
+  let mins = parseInt(m[1])*60+parseInt(m[2]);
+  for (let i=0;i<4;i++){
+    const h=Math.floor(mins/60), mn=mins%60;
+    blocked.add(`${day}|${h}:${mn.toString().padStart(2,'0')}`);
+    mins+=15;
+  }
+  return blocked;
+}
+
 function renderRollup(){
   const el=document.getElementById("tab-rollup");
   el.innerHTML=`
     <div class="filter-row">
       <select id="rd"><option value="">All days</option>${DAYS.map(d=>`<option value="${d}">${d}</option>`).join('')}</select>
-      <select id="rm"><option value="">Any availability</option><option value="ip">In-person</option><option value="online">Online</option><option value="both">Both</option></select>
-      <select id="rs"><option value="">Any time</option>${(document.getElementById("rd")?.value?slotsForDay(document.getElementById("rd").value):SLOTS).map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
+      <select id="rm">
+        <option value="">Any availability</option>
+        <option value="ip">In-person</option>
+        <option value="online">Online</option>
+        <option value="both">Both</option>
+      </select>
+      <select id="rs"><option value="">Any time</option>${SLOTS.map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
+      <select id="rf">
+        <option value="free">Free only</option>
+        <option value="all">Free + assigned</option>
+        <option value="assigned">Assigned only</option>
+      </select>
       <input id="rq" placeholder="Filter instructor…" oninput="buildRollup()" style="min-width:150px;"/>
     </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;font-size:11px;color:var(--muted);">
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(63,185,80,.3);margin-right:4px;vertical-align:middle;"></span>In-person free</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(88,166,255,.3);margin-right:4px;vertical-align:middle;"></span>Online free</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(188,140,255,.3);margin-right:4px;vertical-align:middle;"></span>Both free</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(210,153,34,.3);margin-right:4px;vertical-align:middle;"></span>Assigned (lead)</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(188,140,255,.15);border:1px solid rgba(188,140,255,.3);margin-right:4px;vertical-align:middle;"></span>Assigned (shadow)</span>
+    </div>
     <div id="rollup-wrap"></div>`;
+
   document.getElementById("rd").addEventListener("change", function(){
-    // Refresh slot options when day changes
-    const day = this.value;
-    const slots = day ? slotsForDay(day) : SLOTS;
-    const rs = document.getElementById("rs");
-    rs.innerHTML = '<option value="">Any time</option>' + slots.map(s=>`<option value="${s}">${s}</option>`).join('');
+    const day=this.value;
+    const slots=day?slotsForDay(day):SLOTS;
+    const rs=document.getElementById("rs");
+    rs.innerHTML='<option value="">Any time</option>'+slots.map(s=>`<option value="${s}">${s}</option>`).join('');
     buildRollup();
   });
-  ["rm","rs"].forEach(id=>document.getElementById(id).addEventListener("change",buildRollup));
+  ["rm","rs","rf"].forEach(id=>document.getElementById(id).addEventListener("change",buildRollup));
   buildRollup();
 }
+
 window.buildRollup=function(){
-  const day=document.getElementById("rd")?.value||"";
-  const mode=document.getElementById("rm")?.value||"";
-  const slot=document.getElementById("rs")?.value||"";
-  const q=(document.getElementById("rq")?.value||"").toLowerCase();
-  const wrap=document.getElementById("rollup-wrap"); if(!wrap) return;
+  const day  = document.getElementById("rd")?.value||"";
+  const mode = document.getElementById("rm")?.value||"";
+  const slot = document.getElementById("rs")?.value||"";
+  const filt = document.getElementById("rf")?.value||"free";
+  const q    = (document.getElementById("rq")?.value||"").toLowerCase();
+  const wrap = document.getElementById("rollup-wrap"); if(!wrap) return;
   const days=day?[day]:DAYS, slots=slot?[slot]:SLOTS;
+
+  // Pre-compute blocked slots per instructor
+  const blockedByUid={};
+  allProfiles.forEach(p=>{ blockedByUid[p.uid]=assignedSlotsForProfile(p); });
+
   const insts=allProfiles.filter(p=>{
     if(p.active===false) return false;
     if(q&&!(p.displayName||"").toLowerCase().includes(q)) return false;
+    const blocked=blockedByUid[p.uid];
     for(const d of days) for(const s of slots){
-      const st=(p.availability?.[d]||{})[s]||"none"; if(st==="none") continue;
+      const key=`${d}|${s}`;
+      const isAssigned=blocked.has(key);
+      const avail=(p.availability?.[d]||{})[s]||"none";
+      if(filt==="assigned") { if(isAssigned) return true; continue; }
+      if(filt==="free")     { if(isAssigned||avail==="none") continue; }
+      // filt==="all": show if assigned OR available
+      if(filt==="all" && !isAssigned && avail==="none") continue;
       if(!mode) return true;
-      if(mode==="ip"&&(st==="ip"||st==="both")) return true;
-      if(mode==="online"&&(st==="online"||st==="both")) return true;
-      if(mode==="both"&&st==="both") return true;
+      if(!isAssigned){
+        if(mode==="ip"     &&(avail==="ip"||avail==="both"))     return true;
+        if(mode==="online" &&(avail==="online"||avail==="both")) return true;
+        if(mode==="both"   && avail==="both")                    return true;
+      } else {
+        return true; // assigned slots always shown when mode filter active
+      }
     }
     return false;
   });
-  if(!insts.length){wrap.innerHTML='<div class="empty">No matches.</div>';return;}
+
+  if(!insts.length){wrap.innerHTML='<div class="empty">No instructors match these filters.</div>';return;}
+
+  // Build columns — slots where at least one instructor has something to show
   const cols=[];
   for(const d of days) for(const s of slots){
-    const any=insts.some(p=>{const st=(p.availability?.[d]||{})[s]||"none";if(st==="none")return false;
-      if(!mode)return true;if(mode==="ip")return st==="ip"||st==="both";
-      if(mode==="online")return st==="online"||st==="both";if(mode==="both")return st==="both";return false;});
+    const key=`${d}|${s}`;
+    const any=insts.some(p=>{
+      const blocked=blockedByUid[p.uid];
+      const isAssigned=blocked.has(key);
+      const avail=(p.availability?.[d]||{})[s]||"none";
+      if(filt==="assigned") return isAssigned;
+      if(filt==="free")     return !isAssigned&&avail!=="none";
+      return isAssigned||avail!=="none";
+    });
     if(any) cols.push({day:d,slot:s});
   }
-  if(!cols.length){wrap.innerHTML='<div class="empty">No availability matches.</div>';return;}
+
+  if(!cols.length){wrap.innerHTML='<div class="empty">No availability matches these filters.</div>';return;}
+
   wrap.innerHTML=`<div style="overflow-x:auto;"><table class="rollup-table"><thead><tr>
-    <th>Instructor</th>${cols.map(({day,slot})=>`<th style="white-space:nowrap;">${day}<br/><span style="font-weight:400;color:var(--muted);">${slot}</span></th>`).join('')}
+    <th>Instructor</th>
+    ${cols.map(({day,slot})=>`<th style="white-space:nowrap;">${day}<br/><span style="font-weight:400;color:var(--muted);">${slot}</span></th>`).join('')}
   </tr></thead><tbody>
-  ${insts.map(p=>`<tr>
-    <td style="font-weight:500;cursor:pointer;color:var(--accent);" onclick="showTab('instructors');openProf('${p.uid}')">${p.displayName}</td>
-    ${cols.map(({day,slot})=>{const st=(p.availability?.[day]||{})[slot]||"none";
-      if(st==="none")return`<td></td>`;
-      return`<td><span class="pip ${st==='ip'?'pip-ip':st==='online'?'pip-online':'pip-both'}">${LABELS[st]}</span></td>`;
-    }).join('')}
-  </tr>`).join('')}
+  ${insts.map(p=>{
+    const blocked=blockedByUid[p.uid];
+    return`<tr>
+      <td style="font-weight:500;cursor:pointer;color:var(--accent);" onclick="showTab('instructors');openProf('${p.uid}')">${p.displayName}</td>
+      ${cols.map(({day,slot})=>{
+        const key=`${day}|${slot}`;
+        const isAssigned=blocked.has(key);
+        const avail=(p.availability?.[day]||{})[slot]||"none";
+        if(isAssigned){
+          // Determine lead vs shadow
+          const {lead}=classesForProfile(p);
+          const isLead=lead.some(cls=>{
+            const d=DAYS.find(d=>(cls.day||'').toLowerCase().startsWith(d.toLowerCase()));
+            return assignedSlotsForClass(cls).has(key);
+          });
+          return isLead
+            ? `<td title="Assigned as lead"><span class="pip pip-class">📚 Lead</span></td>`
+            : `<td title="Assigned as shadow"><span class="pip pip-shadow">👁 Shadow</span></td>`;
+        }
+        if(avail==="none") return`<td></td>`;
+        return`<td><span class="pip ${avail==='ip'?'pip-ip':avail==='online'?'pip-online':'pip-both'}">${LABELS[avail]}</span></td>`;
+      }).join('')}
+    </tr>`;
+  }).join('')}
   </tbody></table></div>`;
 };
 
@@ -789,15 +909,19 @@ function detectConflicts(){
     if(lead&&lead.active===false) C.push({type:"Inactive instructor — lead",detail:`${lead.displayName} is inactive but assigned as lead on ${c.classId}.`,tags:[lead.displayName,c.classId]});
     c.shadows.forEach(s=>{const sp=matchProfile(s);if(sp&&sp.active===false)
       C.push({type:"Inactive instructor — shadow",detail:`${sp.displayName} is inactive but listed as shadow on ${c.classId}.`,tags:[sp.displayName,c.classId]});});});
-  // Assigned outside availability — year-agnostic (availability applies regardless of year)
+  // Assigned outside availability — check all 4 slots a class occupies
   allClasses.forEach(c=>{
     const day=DAYS.find(d=>(c.day||'').toLowerCase().startsWith(d.toLowerCase()));if(!day) return;
-    const slot=SLOTS.find(s=>s===c.time);if(!slot) return;
-    const check=(csvName,role)=>{const p=matchProfile(csvName);if(!p||p.active===false)return;
-      const st=(p.availability?.[day]||{})[slot]||'none';
-      if(st==='none') C.push({type:"Assigned outside stated availability",
-        detail:`${p.displayName} is ${role} on ${c.classId} (${day} ${c.time}) but hasn't marked that slot available.`,
-        tags:[p.displayName,c.classId,day,c.time]});};
+    const classSlots=[...assignedSlotsForClass(c)].map(k=>k.split('|')[1]);
+    if(!classSlots.length) return;
+    const check=(csvName,role)=>{
+      const p=matchProfile(csvName);if(!p||p.active===false)return;
+      // Flag if none of the class slots are marked available
+      const hasAny=classSlots.some(s=>(p.availability?.[day]||{})[s]&&(p.availability[day][s]!=='none'));
+      if(!hasAny) C.push({type:"Assigned outside stated availability",
+        detail:`${p.displayName} is ${role} on ${c.classId} (${day} ${c.time}) but hasn't marked any of those slots as available.`,
+        tags:[p.displayName,c.classId,day,c.time]});
+    };
     if(c.instructor) check(c.instructor,'lead');
     c.shadows.forEach(s=>check(s,'shadow'));
   });
