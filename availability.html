@@ -648,7 +648,7 @@ function renderProfile(el,uid){
       </div>`:''}
       ${p.notes?`<div class="section-label" style="margin-bottom:4px;">Admin notes</div><div class="note-box" style="margin-bottom:${p.comment?'10px':'0'};">${p.notes}</div>`:''}
       ${p.comment?`<div class="section-label" style="margin-bottom:4px;margin-top:${p.notes?'10px':'0'};">Instructor comment</div><div class="note-box">${p.comment}</div>`:''}
-    </div>`:''}`
+    </div>`:''}
     <div class="two-col">
       <div>
         <div class="card"><div class="section-label">Lead classes (${lead.length})</div>
