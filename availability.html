@@ -141,11 +141,34 @@ const auth = getAuth(app);
 const db   = getFirestore(app);
 
 const DAYS  = ['Mon','Tue','Wed','Thu','Fri','Sat'];
-const SLOTS = [];
-for (let h=8;h<=20;h++) for (let m=0;m<60;m+=15) {
-  if (h===8&&m<45) continue; if (h===20&&m>15) continue;
-  SLOTS.push(`${h}:${m.toString().padStart(2,'0')}`);
+
+// Per-day slot ranges
+const DAY_RANGE = {
+  Mon: {start:[15,0], end:[21,0]},
+  Tue: {start:[15,0], end:[21,0]},
+  Wed: {start:[15,0], end:[21,0]},
+  Thu: {start:[15,0], end:[21,0]},
+  Fri: {start:[13,0], end:[21,0]},
+  Sat: {start:[8,45], end:[16,0]},
+};
+function slotsForDay(day) {
+  const {start,end} = DAY_RANGE[day] || {start:[15,0],end:[21,0]};
+  const slots = [];
+  for (let h=start[0]; h<=end[0]; h++) {
+    for (let m=0; m<60; m+=15) {
+      if (h===start[0] && m<start[1]) continue;
+      if (h===end[0]   && m>=end[1])  continue;
+      if (h>end[0]) continue;
+      slots.push(`${h}:${m.toString().padStart(2,'0')}`);
+    }
+  }
+  return slots;
 }
+// Union of all slots (for rollup/conflict selectors)
+const SLOTS = [...new Set(DAYS.flatMap(slotsForDay))].sort((a,b)=>{
+  const [ah,am]=a.split(':').map(Number),[bh,bm]=b.split(':').map(Number);
+  return (ah*60+am)-(bh*60+bm);
+});
 const STATES = ['none','ip','online','both'];
 const LABELS = {none:'—',ip:'IP',online:'Web',both:'Both'};
 const TITLES = {none:'Unavailable',ip:'In-person only',online:'Online only',both:'Both IP & online'};
@@ -303,15 +326,21 @@ function renderMine(){
 
 function buildGrid(wrapperId,avail,editable){
   const w=document.getElementById(wrapperId); if(!w) return;
-  let h=`<div class="avail-grid"><div class="ag-label"></div>`;
-  DAYS.forEach(d=>{h+=`<div class="ag-header">${d}</div>`;});
-  SLOTS.forEach(slot=>{
-    h+=`<div class="ag-label">${slot}</div>`;
-    DAYS.forEach(day=>{
+  // Render each day as its own mini-column with only its relevant slots
+  let h=`<div style="display:flex;gap:8px;overflow-x:auto;">`;
+  DAYS.forEach(day=>{
+    const slots=slotsForDay(day);
+    h+=`<div style="flex-shrink:0;">`;
+    h+=`<div class="ag-header" style="text-align:center;margin-bottom:3px;">${day}</div>`;
+    slots.forEach(slot=>{
       const st=(avail[day]||{})[slot]||'none';
-      if(editable) h+=`<div class="ag-cell ${st}" title="${TITLES[st]}" onclick="cycleSlot('${day}','${slot}',this)">${st==='none'?'':LABELS[st]}</div>`;
-      else h+=`<div class="ag-cell ${st} readonly" title="${TITLES[st]}">${st==='none'?'':LABELS[st]}</div>`;
+      const label=`<span style="font-size:9px;color:var(--muted);display:block;margin-bottom:1px;">${slot}</span>`;
+      if(editable)
+        h+=`<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">${label}<div class="ag-cell ${st}" style="width:44px;" title="${TITLES[st]}" onclick="cycleSlot('${day}','${slot}',this)">${st==='none'?'':LABELS[st]}</div></div>`;
+      else
+        h+=`<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">${label}<div class="ag-cell ${st} readonly" style="width:44px;" title="${TITLES[st]}">${st==='none'?'':LABELS[st]}</div></div>`;
     });
+    h+=`</div>`;
   });
   h+=`</div>`;
   w.innerHTML=h;
@@ -426,11 +455,19 @@ function renderRollup(){
     <div class="filter-row">
       <select id="rd"><option value="">All days</option>${DAYS.map(d=>`<option value="${d}">${d}</option>`).join('')}</select>
       <select id="rm"><option value="">Any availability</option><option value="ip">In-person</option><option value="online">Online</option><option value="both">Both</option></select>
-      <select id="rs"><option value="">Any time</option>${SLOTS.map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
+      <select id="rs"><option value="">Any time</option>${(document.getElementById("rd")?.value?slotsForDay(document.getElementById("rd").value):SLOTS).map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
       <input id="rq" placeholder="Filter instructor…" oninput="buildRollup()" style="min-width:150px;"/>
     </div>
     <div id="rollup-wrap"></div>`;
-  ["rd","rm","rs"].forEach(id=>document.getElementById(id).addEventListener("change",buildRollup));
+  document.getElementById("rd").addEventListener("change", function(){
+    // Refresh slot options when day changes
+    const day = this.value;
+    const slots = day ? slotsForDay(day) : SLOTS;
+    const rs = document.getElementById("rs");
+    rs.innerHTML = '<option value="">Any time</option>' + slots.map(s=>`<option value="${s}">${s}</option>`).join('');
+    buildRollup();
+  });
+  ["rm","rs"].forEach(id=>document.getElementById(id).addEventListener("change",buildRollup));
   buildRollup();
 }
 window.buildRollup=function(){
@@ -492,14 +529,34 @@ function renderConflicts(){
       </div>`).join('')}
     </div>`;
 }
+// Extract the school year prefix from a class ID (e.g. "25-1081" → "25", "1081" → null)
+function classYear(classId) {
+  const m = (classId||'').match(/^(\d{2})-/);
+  return m ? m[1] : null;
+}
+// Two classes conflict only if they have the same year prefix (or neither has one)
+function sameYear(a, b) {
+  const ya=classYear(a), yb=classYear(b);
+  return ya===yb; // both null, or both same prefix
+}
+
 function detectConflicts(){
   const C=[];
-  // Double-booked lead
+  // Double-booked lead — only flag if same school year
   const bl={};
   allClasses.forEach(c=>{const p=matchProfile(c.instructor);if(!p)return;const k=`${p.uid}|${(c.day||'').slice(0,3).toLowerCase()}|${c.time}`;if(!bl[k])bl[k]=[];bl[k].push(c);});
-  Object.entries(bl).forEach(([,cls])=>{if(cls.length>1){const p=matchProfile(cls[0].instructor);
-    C.push({type:"Double-booked lead",detail:`${p?.displayName||cls[0].instructor} is lead on ${cls.length} overlapping classes: ${cls.map(c=>c.classId).join(', ')}`,tags:[p?.displayName,...cls.map(c=>c.classId)]});}});
-  // Lead also shadow
+  Object.entries(bl).forEach(([,cls])=>{
+    if(cls.length>1){
+      // Group by year — only flag within-year collisions
+      const byYear={};
+      cls.forEach(c=>{const y=classYear(c.classId)||'_';if(!byYear[y])byYear[y]=[];byYear[y].push(c);});
+      Object.values(byYear).forEach(grp=>{
+        if(grp.length>1){const p=matchProfile(grp[0].instructor);
+          C.push({type:"Double-booked lead",detail:`${p?.displayName||grp[0].instructor} is lead on ${grp.length} overlapping classes in the same school year: ${grp.map(c=>c.classId).join(', ')}`,tags:[p?.displayName,...grp.map(c=>c.classId)]});}
+      });
+    }
+  });
+  // Lead also shadow — year-aware
   allClasses.forEach(c=>{const lead=matchProfile(c.instructor);if(!lead)return;
     c.shadows.forEach(s=>{const sp=matchProfile(s);if(sp&&sp.uid===lead.uid)
       C.push({type:"Lead also listed as shadow",detail:`${lead.displayName} is both lead and shadow on ${c.classId}.`,tags:[lead.displayName,c.classId]});});});
@@ -509,7 +566,7 @@ function detectConflicts(){
     if(lead&&lead.active===false) C.push({type:"Inactive instructor — lead",detail:`${lead.displayName} is inactive but assigned as lead on ${c.classId}.`,tags:[lead.displayName,c.classId]});
     c.shadows.forEach(s=>{const sp=matchProfile(s);if(sp&&sp.active===false)
       C.push({type:"Inactive instructor — shadow",detail:`${sp.displayName} is inactive but listed as shadow on ${c.classId}.`,tags:[sp.displayName,c.classId]});});});
-  // Assigned outside availability
+  // Assigned outside availability — year-agnostic (availability applies regardless of year)
   allClasses.forEach(c=>{
     const day=DAYS.find(d=>(c.day||'').toLowerCase().startsWith(d.toLowerCase()));if(!day) return;
     const slot=SLOTS.find(s=>s===c.time);if(!slot) return;
