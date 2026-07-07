@@ -321,7 +321,7 @@ window.toggleDaySection=function(id){
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut as fbSignOut, updateEmail, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signOut as fbSignOut, verifyBeforeUpdateEmail, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseConfig, CLASS_DATA_URL, WRITING_DATA_URL } from "./firebase-config.js";
 
@@ -1129,18 +1129,20 @@ window.saveEmailChange = async function() {
     // Re-authenticate first
     const credential = EmailAuthProvider.credential(currentUser.email, password);
     await reauthenticateWithCredential(currentUser, credential);
-    // Update Firebase Auth email
-    await updateEmail(currentUser, newEmail);
-    // Update Firestore profile
+    // Send verification email to new address — change takes effect after user clicks link
+    await verifyBeforeUpdateEmail(currentUser, newEmail);
+    // Update Firestore profile email immediately so it's ready when they verify
     await updateDoc(doc(db, 'instructors', currentUser.uid), { email: newEmail });
-    sucEl.textContent='✓ Email updated successfully.';
+    sucEl.textContent='✓ Verification email sent to ' + newEmail + '. The change will take effect after you click the link in that email.';
     sucEl.style.display='block';
-    setTimeout(closeEmailChangeDialog, 2000);
+    setTimeout(closeEmailChangeDialog, 4000);
   } catch(e) {
     const msg = e.code==='auth/wrong-password' ? 'Incorrect password.'
+              : e.code==='auth/invalid-credential' ? 'Incorrect password.'
               : e.code==='auth/email-already-in-use' ? 'That email is already in use.'
               : e.code==='auth/invalid-email' ? 'Invalid email address.'
               : e.code==='auth/requires-recent-login' ? 'Please sign out and sign back in before changing your email.'
+              : e.code==='auth/operation-not-allowed' ? 'Email changes must be verified. Check your new inbox for a verification link.'
               : e.message;
     errEl.textContent = msg;
     errEl.style.display='block';
