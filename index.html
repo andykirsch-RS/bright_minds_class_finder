@@ -1474,10 +1474,14 @@ function fetchData() {
   function fetchCSV(url) {
     if(!url) return Promise.resolve(null);
     const bustUrl = url + (url.includes('?') ? '&' : '?') + '_=' + Date.now();
-    const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(bustUrl);
-    return fetch(proxyUrl, { cache:"no-store" })
-      .then(r => r.ok ? r.text() : null)
-      .catch(() => null);
+    // Try corsproxy.io first, fall back to allorigins.win if it fails
+    const proxy1 = "https://corsproxy.io/?" + encodeURIComponent(bustUrl);
+    const proxy2 = "https://api.allorigins.win/raw?url=" + encodeURIComponent(bustUrl);
+    return fetch(proxy1, { cache:"no-store" })
+      .then(r => r.ok ? r.text() : Promise.reject('proxy1 failed'))
+      .catch(() => fetch(proxy2, { cache:"no-store" })
+        .then(r => r.ok ? r.text() : null)
+        .catch(() => null));
   }
 
   // Get writing URL from config or firebase-config module
@@ -1486,7 +1490,7 @@ function fetchData() {
   Promise.all([fetchCSV(CONFIG.dataUrl), fetchCSV(writingUrl)])
     .then(([mathText, writingText]) => {
       if (!mathText || mathText.trim().length === 0)
-        throw new Error("The math sheet returned empty data. Check that the correct tab is published.");
+        throw new Error("Could not load class data. This may be a temporary issue with the data proxy — try refreshing in a moment. If the problem persists, check that the correct tab is published in Google Sheets.");
       const mathClasses = parseFile(mathText, "data.csv").map(c=>({...c, program:'math'}));
       if (!mathClasses || mathClasses.length === 0)
         throw new Error("No classes found. Check that the published tab has the right column headers.");
