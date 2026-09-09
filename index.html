@@ -1474,14 +1474,27 @@ function fetchData() {
   function fetchCSV(url) {
     if(!url) return Promise.resolve(null);
     const bustUrl = url + (url.includes('?') ? '&' : '?') + '_=' + Date.now();
-    // Try corsproxy.io first, fall back to allorigins.win if it fails
-    const proxy1 = "https://corsproxy.io/?" + encodeURIComponent(bustUrl);
-    const proxy2 = "https://api.allorigins.win/raw?url=" + encodeURIComponent(bustUrl);
-    return fetch(proxy1, { cache:"no-store" })
-      .then(r => r.ok ? r.text() : Promise.reject('proxy1 failed'))
-      .catch(() => fetch(proxy2, { cache:"no-store" })
-        .then(r => r.ok ? r.text() : null)
-        .catch(() => null));
+    const proxies = [
+      "https://corsproxy.io/?" + encodeURIComponent(bustUrl),
+      "https://api.allorigins.win/raw?url=" + encodeURIComponent(bustUrl),
+      "https://corsproxy.org/?" + encodeURIComponent(bustUrl),
+    ];
+    // Try each proxy in sequence, fall back to direct fetch as last resort
+    const tryNext = (i) => {
+      if(i >= proxies.length){
+        // Direct fetch as last resort (may work if Google allows it)
+        return fetch(bustUrl, { cache:"no-store", mode:"cors" })
+          .then(r => r.ok ? r.text() : null)
+          .catch(() => null);
+      }
+      return fetch(proxies[i], { cache:"no-store" })
+        .then(r => {
+          if(!r.ok) return tryNext(i+1);
+          return r.text().then(t => t && t.trim().length > 0 ? t : tryNext(i+1));
+        })
+        .catch(() => tryNext(i+1));
+    };
+    return tryNext(0);
   }
 
   // Get writing URL from config or firebase-config module

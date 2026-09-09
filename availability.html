@@ -532,13 +532,27 @@ onAuthStateChanged(auth, async user=>{
 async function fetchClasses(){
   async function fetchCSV(url, program){
     if(!url) return [];
-    try{
-      // Append timestamp to bust any server-side or CDN caching
-      const bustUrl = url + (url.includes('?') ? '&' : '?') + '_=' + Date.now();
-      const r=await fetch("https://corsproxy.io/?"+encodeURIComponent(bustUrl),{cache:"no-store"});
-      if(!r.ok) return [];
-      return parseCSV(await r.text(), program);
-    }catch{ return []; }
+    const bustUrl = url + (url.includes('?') ? '&' : '?') + '_=' + Date.now();
+    const proxies = [
+      "https://corsproxy.io/?" + encodeURIComponent(bustUrl),
+      "https://api.allorigins.win/raw?url=" + encodeURIComponent(bustUrl),
+      "https://corsproxy.org/?" + encodeURIComponent(bustUrl),
+    ];
+    const tryNext = async (i) => {
+      if(i >= proxies.length){
+        try{
+          const r = await fetch(bustUrl, {cache:"no-store", mode:"cors"});
+          return r.ok ? parseCSV(await r.text(), program) : [];
+        }catch{ return []; }
+      }
+      try{
+        const r = await fetch(proxies[i], {cache:"no-store"});
+        if(!r.ok) return tryNext(i+1);
+        const t = await r.text();
+        return t && t.trim().length > 0 ? parseCSV(t, program) : tryNext(i+1);
+      }catch{ return tryNext(i+1); }
+    };
+    return tryNext(0);
   }
   const [math, writing] = await Promise.all([
     fetchCSV(CLASS_DATA_URL, 'math'),
